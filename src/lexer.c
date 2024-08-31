@@ -66,6 +66,8 @@ Token lexer_next(Lexer *l) {
 	if (c == '\n') {
 		l->line++;
 		l->lastline = l->pos;
+		lexer_advance(l);
+		return lexer_next(l);
 	}	
 
 	// Whitespace

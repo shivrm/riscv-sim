@@ -68,6 +68,7 @@ typedef enum NodeType {
 typedef struct ParseErr {
 	int is_err;
 	char *msg;
+	int line, scol, ecol;	
 } ParseErr;
 
 typedef struct ParseNode {	

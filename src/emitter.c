@@ -64,7 +64,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc) {
                     | (p->data.s.rs2 << 20)
                     | (p->data.s.rs1 << 15)
                     | (p->data.s.entry->funct3 << 12)
-                    | ((imm & 0b11111) << 8)
+                    | ((imm & 0b11111) << 7)
                     | (p->data.s.entry->opcode);
     
             fputc(hex & 0xff, f);
@@ -137,6 +137,8 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc) {
 void emit_all(FILE *f, ParseNode p[], int num_nodes) {
     LabelEntry le[100] = {};
     LabelVec labels = {0, 100, le}; 
+
+    printf("%d\n", num_nodes);
 
     int offset = 0;
     for (int i = 0; i < num_nodes; i++) {

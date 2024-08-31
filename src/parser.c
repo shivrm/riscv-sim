@@ -20,6 +20,20 @@ int startswith(char *a, char *b) {
 	return 1;
 }
 
+char *token_type_to_str(TokenType tt) {
+	switch (tt) {
+		case TOK_EOF:    return "EOF";
+		case TOK_LPAREN: return "left paren `(`";
+		case TOK_RPAREN: return "right paren `)`";
+		case TOK_COMMA:  return "comma `,`";
+		case TOK_COLON:  return "colon `:`";
+		case TOK_DECNUM: return "decimal number";
+		case TOK_BINNUM: return "binary number";
+		case TOK_HEXNUM: return "hex number";
+		case TOK_OCTNUM: return "octal number";
+		case TOK_IDENT:  return "identifier";
+	}
+}
 
 // Initializes the parser
 void parser_init(Parser *p, Lexer *l) {
@@ -33,6 +47,9 @@ void parser_advance(Parser *p, ParseErr *err) {
 	if (p->current.type == TOK_EOF) {
 		err->is_err = 1;
 		err->msg = "EOF while parsing";
+		err->line = p->lexer->line;
+		err->scol = p->current.span.start - p->lexer->lastline;
+		err->ecol = p->current.span.end - p->lexer->lastline;
 		return;
 	}
 
@@ -40,6 +57,9 @@ void parser_advance(Parser *p, ParseErr *err) {
 	if (p->current.type == TOK_ERR) {
 		err->is_err = 1;
 		err->msg = "Invalid syntax";	
+		err->line = p->lexer->line;
+		err->scol = p->current.span.start - p->lexer->lastline;
+		err->ecol = p->current.span.end - p->lexer->lastline;
 	}
 }
 
@@ -47,18 +67,23 @@ void parser_expect(Parser *p, TokenType tt, ParseErr *err) {
 		TokenType cur = p->current.type;
 		if (cur != tt) {
 			err->is_err = 1; 
-			err->msg = "Expected something, got something else";
+			err->msg = malloc(50 * sizeof(char));
+			sprintf(err->msg, "Expected %s, got %s", token_type_to_str(tt), token_type_to_str(p->current.type));
+			err->line = p->lexer->line;
+			err->scol = p->current.span.start - p->lexer->lastline;
+			err->ecol = p->current.span.end - p->lexer->lastline;
 			return;
 		}
         parser_advance(p, err);	
 }
 
 int parser_tteq(Parser *p, char *str) {
-	return startswith(&p->src[p->current.span.start], str) && (strlen(str) == (p->current.span.end - p->current.span.start));
+	return startswith(&p->src[p->current.span.start], str)
+		&& (strlen(str) == (p->current.span.end - p->current.span.start));
 }
 
 int parse_register(Parser *p, ParseErr *err) {
-	for (int i = 0; i < 64; i++) {
+	for (int i = 0; i < sizeof(reg_table)/sizeof(RegTableEntry); i++) {
 		if (parser_tteq(p, reg_table[i].key)) {
 			parser_advance(p, err);	
 			return reg_table[i].value;
@@ -67,6 +92,9 @@ int parse_register(Parser *p, ParseErr *err) {
 
 	err->is_err = 1;
 	err->msg = "Invalid register name";
+	err->line = p->lexer->line;
+	err->scol = p->current.span.start - p->lexer->lastline;
+	err->ecol = p->current.span.end - p->lexer->lastline;
 	return -1;
 }
 
@@ -93,6 +121,9 @@ int parse_number(Parser *p, ParseErr *err) {
 	default:
 		err->is_err = 1;
 		err->msg = "Invalid number";
+		err->line = p->lexer->line;
+		err->scol = p->current.span.start - p->lexer->lastline;
+		err->ecol = p->current.span.end - p->lexer->lastline;
 		return -1;
     }
 
@@ -100,8 +131,8 @@ int parse_number(Parser *p, ParseErr *err) {
 
 NumOrLabel parse_number_or_label(Parser *p, ParseErr *err) {
     if (p->current.type == TOK_IDENT) {
-        char *label = malloc(100 * sizeof(char));
         int n = p->current.span.end - p->current.span.start;
+        char *label = malloc((n+1) * sizeof(char));
         strncpy(label, &p->src[p->current.span.start], n);
         label[n] = '\0';
         NumOrLabel res = {
@@ -321,7 +352,7 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 		}
 	}
 	for (int i = 0; i < sizeof(u_ins_table)/sizeof(UInsTableEntry); i++) {
-		if (parser_tteq(p, i_ins_table[i].key)) {
+		if (parser_tteq(p, u_ins_table[i].key)) {
 			parser_advance(p, err);
 			if (err->is_err) return sentinel;
 			ParseNode node = {
@@ -343,16 +374,20 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 		}
 	}
 
-
-    char *label = malloc(100 * sizeof(char));
     int n = p->current.span.end - p->current.span.start;
+    char *label = malloc((n+1) * sizeof(char));
     strncpy(label, &p->src[p->current.span.start], n);
     label[n] = '\0';
+ 
     parser_advance(p, err);
 	if (err->is_err) return sentinel;
 
     parser_expect(p, TOK_COLON, err);
-	if (err->is_err) return sentinel;
+	if (err->is_err) {
+		err->msg = "Unknown instruction";
+		return sentinel;
+	}
+ 
     ParseNode node = {
         LABEL,
         { .l = {label} }

@@ -5,6 +5,8 @@
 #include "emitter.h"
 #endif
 
+#include "readfile.c"
+
 char *repr_token_type(TokenType tt) {
 	switch (tt) {
 		case TOK_EOF:    return "EOF   ";
@@ -26,69 +28,46 @@ void str_slice(char* str, char* result, size_t start, size_t end) {
 	result[end - start] = '\0';
 }
 
+void print_error(char *src, ParseErr *err) {	
+	char *ptr = src;
+	for (int i = 1; i < err->line; i++) {
+		while ((*ptr != '\n') && (*ptr != '\0')) {
+			ptr++;
+		}	
+		ptr++;
+	}	
+	char *start = ptr;		
+	while (*ptr != '\n' && *ptr != '\0') ptr++;	
+	char *end = ptr;
+
+
+	printf("Error on line %d: %s\n", err->line, err->msg);
+	
+	printf("%.*s\n", end - start, start);
+	for (int i = 1; i < err->scol; i++) {
+		if (start[i] == '\t') {
+			printf("\t");
+		} else {
+			printf(" ");
+		}
+	}
+	for (int i = err->scol; i < err->ecol; i++) {
+		printf("^");
+	}
+	printf("\n");
+}
+
 int main(void) {
-	char* src = " \
-	Label1: \
-	sd x0, 0(x0) \
-	add x11, x3, x4 \
-    addi x12, x3, 0x200 \
-    ld x5, 02(x3) \
-	ld x5 \
-";
+	buffer buf = {0, 0, NULL};
+	FILE *fin = fopen("src.s", "r");	
+	read_file(fin, &buf);
+	fclose(fin);
 
-	FILE *f = fopen("out.hex", "wb");
 
+	char* src = buf.data;
 
 	Lexer l;
 	lexer_init(&l, src);
-
-	printf("Source string: %s\n", src);
-
-	Parser p;
-	ParseErr err = {0, ""};
-	parser_init(&p, &l);
-
-	ParseNode nodes[100];
-	int n = 0;
-
-	for (int i = 0; i < 6; i++) {
-		ParseNode pn = parser_next(&p, &err);
-		nodes[n++] = pn;
-		if (err.is_err) {
-			printf("ERROR: %s\n", err.msg);
-			return 1;
-		}
-	}
-
-	emit_all(f, nodes, 5);
-	fclose(f);
-
-/*
-	ParseNode pn = parser_next(&p);
-	
-	printf("%d\n", pn.type);
-	printf("%d %d %d\n", pn.data.r.rd, pn.data.r.rs1, pn.data.r.rs2);
-
-	pn = parser_next(&p);
-
-	printf("%d\n", pn.type);
-	printf("%d %d %d\n", pn.data.i.rd, pn.data.i.rs1, pn.data.i.imm.data.n);
-
-	pn = parser_next(&p);
-
-	printf("%d\n", pn.type);
-	printf("%s\n", pn.data.l.name);
-
-	pn = parser_next(&p);
-
-	printf("%d\n", pn.type);
-	printf("%s\n", pn.data.l.name);
-
-	pn = parser_next(&p);
-
-	printf("%d\n", pn.type);
-	printf("%d %d %d\n", pn.data.r.rd, pn.data.r.rs1, pn.data.r.rs2);
-*/
 
 	/*
 	Token t;
@@ -101,5 +80,26 @@ int main(void) {
 	}
 	*/
 
+	Parser p;
+	ParseErr err = {0, "", 0, 0, 0};
+	parser_init(&p, &l);
+	ParseNode nodes[100];
+	
+	int n = 0;
+	while(1) {
+		ParseNode pn = parser_next(&p, &err);
+		if (err.is_err) {
+			if (strcmp(err.msg, "EOF while parsing") == 0) break;
+			print_error(src, &err);
+			return 1;
+		}
+		nodes[n++] = pn;	
+	}
+
+	FILE *fout = fopen("out.hex", "wb");
+	emit_all(fout, nodes, n);
+	fclose(fout);
+
+	printf("OK\n");	
 	return 0;
 }
