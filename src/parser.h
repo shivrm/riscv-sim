@@ -65,7 +65,12 @@ typedef enum NodeType {
 	LABEL, R_INS, I_INS, S_INS, B_INS, U_INS, J_INS
 } NodeType;
 
-typedef struct ParseNode {
+typedef struct ParseErr {
+	int is_err;
+	char *msg;
+} ParseErr;
+
+typedef struct ParseNode {	
 	NodeType type;
 	union {
         Label l;
@@ -79,4 +84,4 @@ typedef struct ParseNode {
 } ParseNode;
 
 void parser_init(Parser *p, Lexer *l);
-ParseNode parser_next(Parser *p);
+ParseNode parser_next(Parser *p, ParseErr *err);

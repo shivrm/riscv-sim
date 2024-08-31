@@ -3,18 +3,6 @@
 #include <string.h>
 
 
-int startswith(char *a, char *b) {
-	int i = 0;
-	char c1 = a[i], c2 = b[i];
-	while(c2) {
-		if (c1 != c2) return 0;
-		i++;
-		c1 = a[i];
-		c2 = b[i];
-	}
-	return 1;
-}
-
 // Used to construct single character tokens
 #define TOK(kind) { Span s = {start, l->pos}; Token t = {kind, s}; return t; }
 
@@ -42,6 +30,8 @@ int startswith(char *a, char *b) {
 void lexer_init(Lexer* l, char* src) {
 	l->src = src;
 	l->pos = 0;
+	l->line = 1;
+	l->lastline = -1;
 }
 
 // Returns the current charater.
@@ -58,11 +48,11 @@ void lexer_advance(Lexer* l) {
 
 // Checks if the current character falls into some character classes
 // To be used with LEXER_TAKE
-#define IS_WHITESPACE(c) ((c) == ' ' || (c) == '\n' || (c) == '\t')
+#define IS_WHITESPACE(c) ((c) == ' ' || (c) == '\t')
 #define IS_DECDIGIT(c) ((c) >= '0' && (c) <= '9')
 #define IS_BINDIGIT(c) ((c) == '0' || (c) == '1')
 #define IS_HEXDIGIT(c) ((c) >= '0' && (c) <= '9' || (c) >= 'a' && (c) <= 'f')
-#define IS_OCTDIGIT(c) ((c) >- '0' && (c) <= '7')
+#define IS_OCTDIGIT(c) ((c) >= '0' && (c) <= '7')
 #define IS_ALPHA(c) (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z'))
 #define IS_IDENTCHAR(c) (IS_DECDIGIT(c) || IS_ALPHA(c) || (c) == '_')
 
@@ -71,6 +61,12 @@ Token lexer_next(Lexer *l) {
 	size_t start = l->pos;
 	char c = lexer_current(l);
 	Span s = { start, start };
+
+	// Newlines
+	if (c == '\n') {
+		l->line++;
+		l->lastline = l->pos;
+	}	
 
 	// Whitespace
 	if (IS_WHITESPACE(c)) {
@@ -94,6 +90,7 @@ Token lexer_next(Lexer *l) {
 	}
 
 	// Check for base specifiers like 0x, 0b, etc
+	c = lexer_current(l);
 	if (c == '0') {
 		lexer_advance(l);
 		switch(lexer_current(l)) {
@@ -131,7 +128,6 @@ Token lexer_next(Lexer *l) {
 		}
 	} else if (IS_DECDIGIT(c)) {
 		// Decimal numbers
-		lexer_advance(l);	
 		LEXER_TAKE(IS_DECDIGIT(c));
 		Token t = { TOK_DECNUM, s };
 		return t;

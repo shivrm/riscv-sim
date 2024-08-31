@@ -29,10 +29,11 @@ void str_slice(char* str, char* result, size_t start, size_t end) {
 int main(void) {
 	char* src = " \
 	Label1: \
-	sd x0, Label1(x0) \
+	sd x0, 0(x0) \
 	add x11, x3, x4 \
     addi x12, x3, 0x200 \
-    ld x5, 0(x3) \
+    ld x5, 02(x3) \
+	ld x5 \
 ";
 
 	FILE *f = fopen("out.hex", "wb");
@@ -44,14 +45,19 @@ int main(void) {
 	printf("Source string: %s\n", src);
 
 	Parser p;
+	ParseErr err = {0, ""};
 	parser_init(&p, &l);
 
 	ParseNode nodes[100];
 	int n = 0;
 
-	for (int i = 0; i < 5; i++) {
-		ParseNode pn = parser_next(&p);
+	for (int i = 0; i < 6; i++) {
+		ParseNode pn = parser_next(&p, &err);
 		nodes[n++] = pn;
+		if (err.is_err) {
+			printf("ERROR: %s\n", err.msg);
+			return 1;
+		}
 	}
 
 	emit_all(f, nodes, 5);

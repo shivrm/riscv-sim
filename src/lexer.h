@@ -20,11 +20,8 @@ typedef struct Token {
 
 typedef struct Lexer {
 	char *src;
-	size_t pos;
+	size_t pos, line, lastline;
 } Lexer;
 
 void lexer_init(Lexer* l, char *src);
 Token lexer_next(Lexer *l);
-
-
-int startswith(char *a, char *b);
