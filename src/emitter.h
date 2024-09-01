@@ -14,4 +14,10 @@ typedef struct LabelVec {
     LabelEntry *data;
 } LabelVec;
 
-void emit_all(FILE *f, ParseNode p[], int num_nodes);
+typedef struct EmitErr {
+    int is_err;
+    char *msg;
+    int line;
+} EmitErr;
+
+void emit_all(FILE *f, ParseNode p[], int num_nodes, EmitErr *err);

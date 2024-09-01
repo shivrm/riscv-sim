@@ -82,6 +82,7 @@ typedef struct ParseNode {
 		UIns u;
 		JIns j;
 	} data;
+	int line;
 } ParseNode;
 
 void parser_init(Parser *p, Lexer *l);

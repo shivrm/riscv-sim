@@ -44,7 +44,7 @@ IInsTableEntry i_ins_table[] = {
     {"sltiu", 0b0010011, 0x3},
     {"slli", 0b0010011, 0x1},
     {"srli", 0b0010011, 0x5},
-   {"srai", 0b0010011, 0x5},
+    {"srai", 0b0010011, 0x5},
 };
 
 IInsTableEntry i_ins_table_2[] = {

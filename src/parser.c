@@ -302,7 +302,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				R_INS,
-				{ .r = parse_r_ins(p, &r_ins_table[i], err) }
+				{ .r = parse_r_ins(p, &r_ins_table[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -313,7 +314,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				I_INS,
-				{ .i = parse_i_ins(p, &i_ins_table[i], err) }
+				{ .i = parse_i_ins(p, &i_ins_table[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -324,7 +326,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				I_INS,
-				{ .i = parse_i_ins_2(p, &i_ins_table_2[i], err) }
+				{ .i = parse_i_ins_2(p, &i_ins_table_2[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -335,7 +338,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				S_INS,
-				{ .s = parse_s_ins(p, &s_ins_table[i], err) }
+				{ .s = parse_s_ins(p, &s_ins_table[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -346,7 +350,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				B_INS,
-				{ .b = parse_b_ins(p, &b_ins_table[i], err) }
+				{ .b = parse_b_ins(p, &b_ins_table[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -357,7 +362,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				U_INS,
-				{ .u = parse_u_ins(p, &u_ins_table[i], err) }
+				{ .u = parse_u_ins(p, &u_ins_table[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -368,7 +374,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			if (err->is_err) return sentinel;
 			ParseNode node = {
 				J_INS,
-				{ .j = parse_j_ins(p, &j_ins_table[i], err) }
+				{ .j = parse_j_ins(p, &j_ins_table[i], err) },
+				p->lexer->line - 1,
 			};
 			return node;
 		}
@@ -390,7 +397,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
  
     ParseNode node = {
         LABEL,
-        { .l = {label} }
+        { .l = {label} },
+		p->lexer->line - 1,
     };
     return node;
 }

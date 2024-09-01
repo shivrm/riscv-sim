@@ -1,0 +1,11 @@
+\contentsline {section}{\numberline {1}Introduction}{2}{}%
+\contentsline {section}{\numberline {2}Planning}{2}{}%
+\contentsline {subsection}{\numberline {2.1}Parsing}{2}{}%
+\contentsline {subsection}{\numberline {2.2}One-pass versus Multi-pass}{2}{}%
+\contentsline {subsection}{\numberline {2.3}Error Handling}{3}{}%
+\contentsline {section}{\numberline {3}Design}{3}{}%
+\contentsline {subsection}{\numberline {3.1}File Strucure}{3}{}%
+\contentsline {subsection}{\numberline {3.2}File Strucure}{3}{}%
+\contentsline {subsection}{\numberline {3.3}File Strucure}{3}{}%
+\contentsline {section}{\numberline {4}Features}{3}{}%
+\contentsline {section}{\numberline {5}}{3}{}%
