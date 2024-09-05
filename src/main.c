@@ -6,34 +6,32 @@
 #endif
 
 #define BUF_CHUNK_SIZE 4096
+#define PN_CHUNK_SIZE 4096
 
-typedef struct buffer {
-	size_t cap, len;
-	char *data;
-} buffer;
-
-
-void read_file(FILE *f, buffer *buf) {
+// Reads an entire file into a buffer
+char *read_file(FILE *f) {
+	size_t len = 0, cap = 0;
+	char *buf = NULL;
 	while(1) {
-		size_t available = buf->cap - buf->len;
+		size_t available = cap - len;
 		// Reallocate buffer if no space is available
 		if (available <= 1) {
-			buf->data = realloc(buf->data, buf->cap + BUF_CHUNK_SIZE);
-			for (int i = buf->cap; i < buf->cap + BUF_CHUNK_SIZE; i++) {
-				buf->data[i] = 0;
+			buf = realloc(buf, cap + BUF_CHUNK_SIZE);
+			for (int i = cap; i < cap + BUF_CHUNK_SIZE; i++) {
+				buf[i] = 0;
 			}
-			buf->cap += BUF_CHUNK_SIZE;
+			cap += BUF_CHUNK_SIZE;
 		}
 
-		fgets(&buf->data[buf->len], available, f);
+		fgets(&buf[len], available, f);
 		// fgets doesn't return the number of characters read, so strlen is used.
-		size_t n = strlen(&buf->data[buf->len]);
-		buf->len += n; 
+		size_t n = strlen(&buf[len]);
+		len += n; 
 		
 		// If the number of bytes read is less than n, that means we either hit
 		// a newline or the EOF.
 		if (n < available && feof(f)) {
-			return; 
+			return buf; 
 		}	
 	}
 }
@@ -84,35 +82,32 @@ void print_emit_error(char *src, EmitErr *err) {
 	printf("%.*s\n", end - start, start);
 }
 
-int main(void) {
-	buffer buf = {0, 0, NULL};
-	FILE *fin = fopen("input.s", "r");	
-	read_file(fin, &buf);
+int main(int argc, char *argv[]) {
+	char *inpath = "input.s", *outpath = "output.hex";
+	if (argc == 3) {
+		inpath = argv[1];
+		outpath = argv[2];
+	} else if (argc != 1) {
+		printf("Usage: %s [<input> <output>]\n", argv[0]);
+		return 1;
+	}
+
+	FILE *fin = fopen(inpath, "r");	
+	char* src = read_file(fin);
 	fclose(fin);
 
-
-	char* src = buf.data;
 
 	Lexer l;
 	lexer_init(&l, src);
 
-	/*
-	Token t;
-	while ((t=lexer_next(&l)).type != TOK_EOF) {
-		size_t start = t.span.start, end = t.span.end;
-		char* slice = malloc(end - start + 1);
-		str_slice(src, slice, start, end);
-		printf("%s\t%s\n", repr_token_type(t.type), slice);
-		free(slice);
-	}
-	*/
-
 	Parser p;
 	ParseErr err = {0, "", 0, 0, 0};
 	parser_init(&p, &l);
-	ParseNode nodes[100];
-	
-	int n = 0;
+
+	// Dynamic array for storing arbitrary number of nodes
+	size_t len = 0, cap = 0;
+	ParseNode *nodes = NULL;
+
 	while(1) {
 		ParseNode pn = parser_next(&p, &err);
 		if (err.is_err) {
@@ -120,12 +115,19 @@ int main(void) {
 			print_parse_error(src, &err);
 			return 1;
 		}
-		nodes[n++] = pn;	
+
+		// If capacity is reached, then grow the array
+		if (len == cap) {
+			nodes = realloc(nodes, (cap + PN_CHUNK_SIZE) * sizeof(ParseNode));
+			cap += PN_CHUNK_SIZE;
+		}
+
+		nodes[len++] = pn;	
 	}
 
 	EmitErr err2 = {0, "", 0};
-	FILE *fout = fopen("output.hex", "wb");
-	emit_all(fout, nodes, n, &err2);
+	FILE *fout = fopen(outpath, "wb");
+	emit_all(fout, nodes, len, &err2);
 	fclose(fout);
 
 	if (err2.is_err) {
@@ -133,6 +135,5 @@ int main(void) {
 		return 1;
 	}
 
-	printf("OK\n");	
 	return 0;
 }

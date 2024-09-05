@@ -7,7 +7,8 @@
 
 #include "tables.c"
 
-
+// Does `a` start with `b`?
+// Assumes that a is longer than b
 int startswith(char *a, char *b) {
 	int i = 0;
 	char c1 = a[i], c2 = b[i];
@@ -20,6 +21,8 @@ int startswith(char *a, char *b) {
 	return 1;
 }
 
+// Converts a token type to a human readable string
+// Used for error reporting
 char *token_type_to_str(TokenType tt) {
 	switch (tt) {
 		case TOK_EOF:    return "EOF";
@@ -54,6 +57,8 @@ void parser_advance(Parser *p, ParseErr *err) {
 	}
 
 	p->current = lexer_next(p->lexer);	
+
+	// Handles syntax errors from the lexer
 	if (p->current.type == TOK_ERR) {
 		err->is_err = 1;
 		err->msg = "Invalid syntax";	
@@ -63,6 +68,8 @@ void parser_advance(Parser *p, ParseErr *err) {
 	}
 }
 
+// Advances the parser if (current token type) == tt
+// Otherwise it throws an error
 void parser_expect(Parser *p, TokenType tt, ParseErr *err) {
 		TokenType cur = p->current.type;
 		if (cur != tt) {
@@ -77,11 +84,13 @@ void parser_expect(Parser *p, TokenType tt, ParseErr *err) {
         parser_advance(p, err);	
 }
 
+// Checks if the token test of the current token is equal to `str`
 int parser_tteq(Parser *p, char *str) {
 	return startswith(&p->src[p->current.span.start], str)
 		&& (strlen(str) == (p->current.span.end - p->current.span.start));
 }
 
+// Parses a register into its register number (0-31)
 int parse_register(Parser *p, ParseErr *err) {
 	for (int i = 0; i < sizeof(reg_table)/sizeof(RegTableEntry); i++) {
 		if (parser_tteq(p, reg_table[i].key)) {
@@ -90,6 +99,7 @@ int parse_register(Parser *p, ParseErr *err) {
 		}
 	}
 
+	// THrow an error if none of the register names match
 	err->is_err = 1;
 	err->msg = "Invalid register name";
 	err->line = p->lexer->line;
@@ -98,26 +108,31 @@ int parse_register(Parser *p, ParseErr *err) {
 	return -1;
 }
 
+// Parses a number
 int parse_number(Parser *p, ParseErr *err) {
     char *end;
-    int n;
+	int n;
+
     switch (p->current.type) {
     case TOK_DECNUM:
         n = strtol(&p->src[p->current.span.start], &end, 10);
         parser_advance(p, err);
-        return n;
+		return n;
     case TOK_HEXNUM:
         n = strtol(&p->src[p->current.span.start], &end, 16);
         parser_advance(p, err);
-        return n;
+		return n;
 	case TOK_OCTNUM:
         n = strtol(&p->src[p->current.span.start], &end, 8);
         parser_advance(p, err);
-        return n;
-    case TOK_BINNUM:
-        n = strtol(&p->src[p->current.span.start], &end, 2);
+		return n;
+	case TOK_BINNUM:
+		// strtol doesn't handle `0b` syntax, so we parse the minus
+		// sign ourselves and use strtol for everything after `0b`. 
+		int negative = (p->src[p->current.span.start] == '-');	
+        n = strtol(&p->src[p->current.span.start + 2 + negative], &end, 2);
         parser_advance(p, err);
-        return n;
+        return negative? -n: n;
 	default:
 		err->is_err = 1;
 		err->msg = "Invalid number";
@@ -129,12 +144,15 @@ int parse_number(Parser *p, ParseErr *err) {
 
 }
 
+// Parses a number or a label
 NumOrLabel parse_number_or_label(Parser *p, ParseErr *err) {
     if (p->current.type == TOK_IDENT) {
+		// Copy label text into a string
         int n = p->current.span.end - p->current.span.start;
         char *label = malloc((n+1) * sizeof(char));
         strncpy(label, &p->src[p->current.span.start], n);
         label[n] = '\0';
+
         NumOrLabel res = {
             1,
             { .l = {label} }
@@ -154,6 +172,7 @@ NumOrLabel parse_number_or_label(Parser *p, ParseErr *err) {
     }
 }
 
+// Parses R-format instruction
 RIns parse_r_ins(Parser *p, RInsTableEntry *entry, ParseErr *err) {
 	RIns ins = { entry, 0, 0, 0 };
 
@@ -174,6 +193,7 @@ RIns parse_r_ins(Parser *p, RInsTableEntry *entry, ParseErr *err) {
 	return ins;
 }
 
+// Parses I-format arithmetic instruction
 IIns parse_i_ins(Parser *p, IInsTableEntry *entry, ParseErr *err) {
 	IIns ins = { entry, 0, 0, 0 };
 	
@@ -195,6 +215,7 @@ IIns parse_i_ins(Parser *p, IInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
+// Parses I-format load/jump instruction
 IIns parse_i_ins_2(Parser *p, IInsTableEntry *entry, ParseErr *err) {
 	IIns ins = { entry, 0, 0, 0 };
     ins.rd = parse_register(p, err);
@@ -218,6 +239,7 @@ IIns parse_i_ins_2(Parser *p, IInsTableEntry *entry, ParseErr *err) {
 	return ins;    
 }
 
+// Parses S-format instruction
 SIns parse_s_ins(Parser *p, SInsTableEntry *entry, ParseErr *err) {
 	SIns ins = { entry, 0, 0, 0 };
 
@@ -242,6 +264,7 @@ SIns parse_s_ins(Parser *p, SInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
+// Parses B-format instruction
 BIns parse_b_ins(Parser *p, BInsTableEntry *entry, ParseErr *err) {
 	BIns ins = { entry, 0, 0, 0 };
 
@@ -263,6 +286,7 @@ BIns parse_b_ins(Parser *p, BInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
+// Parses U-format instruction
 UIns parse_u_ins(Parser *p, UInsTableEntry *entry, ParseErr *err) {
 	UIns ins = { entry, 0, 0 };
 	
@@ -278,6 +302,7 @@ UIns parse_u_ins(Parser *p, UInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
+// Parses J-format instruction
 JIns parse_j_ins(Parser *p, JInsTableEntry *entry, ParseErr *err) {
 	JIns ins = { entry, 0, 0 };
 	
@@ -293,9 +318,11 @@ JIns parse_j_ins(Parser *p, JInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
+// Returns the next node in the parse tree
 ParseNode parser_next(Parser *p, ParseErr *err) {	
-	ParseNode sentinel;
+	ParseNode sentinel; // Zero object to be returned in case of error
 
+	// Checks if instruction is R-format and parses
 	for (int i = 0; i < sizeof(r_ins_table)/sizeof(RInsTableEntry); i++) {
 		if (parser_tteq(p, r_ins_table[i].key)) {
 			parser_advance(p, err);
@@ -308,6 +335,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			return node;
 		}
 	}
+	
+	// Checks if instruction is I-format arithmetic and parses
 	for (int i = 0; i < sizeof(i_ins_table)/sizeof(IInsTableEntry); i++) {
 		if (parser_tteq(p, i_ins_table[i].key)) {
 			parser_advance(p, err);
@@ -320,6 +349,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			return node;
 		}
 	}
+
+	// Checks if instruction is I-format memory/jump and parses.
     for (int i = 0; i < sizeof(i_ins_table_2)/sizeof(IInsTableEntry); i++) {
 		if (parser_tteq(p, i_ins_table_2[i].key)) {
 			parser_advance(p, err);
@@ -332,6 +363,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			return node;
 		}
 	}
+
+	// Checks if instruction is S-format and parses
 	for (int i = 0; i < sizeof(s_ins_table)/sizeof(SInsTableEntry); i++) {
 		if (parser_tteq(p, s_ins_table[i].key)) {
 			parser_advance(p, err);
@@ -344,6 +377,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			return node;
 		}
 	}
+
+	// Checks if instruction is B-format and parses
 	for (int i = 0; i < sizeof(b_ins_table)/sizeof(BInsTableEntry); i++) {
 		if (parser_tteq(p, b_ins_table[i].key)) {
 			parser_advance(p, err);
@@ -356,6 +391,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			return node;
 		}
 	}
+
+	// Checks if instruction is U-format and parses
 	for (int i = 0; i < sizeof(u_ins_table)/sizeof(UInsTableEntry); i++) {
 		if (parser_tteq(p, u_ins_table[i].key)) {
 			parser_advance(p, err);
@@ -368,6 +405,8 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 			return node;
 		}
 	}
+
+	// Checks if instruction is J-format and parses
 	for (int i = 0; i < sizeof(j_ins_table)/sizeof(JInsTableEntry); i++) {
 		if (parser_tteq(p, j_ins_table[i].key)) {
 			parser_advance(p, err);
@@ -381,6 +420,7 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 		}
 	}
 
+	// Token might be a label. Copies text into a string
     int n = p->current.span.end - p->current.span.start;
     char *label = malloc((n+1) * sizeof(char));
     strncpy(label, &p->src[p->current.span.start], n);
@@ -389,12 +429,17 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
     parser_advance(p, err);
 	if (err->is_err) return sentinel;
 
+	// Checks for colon after label
     parser_expect(p, TOK_COLON, err);
+
+	// No colon means the earlier token did not belong 
+	// to a label. Raise an unknown instruction error.
 	if (err->is_err) {
 		err->msg = "Unknown instruction";
 		return sentinel;
 	}
  
+	// Otherwise return the label
     ParseNode node = {
         LABEL,
         { .l = {label} },

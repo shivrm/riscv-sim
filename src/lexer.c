@@ -35,13 +35,13 @@ void lexer_init(Lexer* l, char* src) {
 }
 
 // Returns the current charater.
-// Inlining drastically improves performance (~20%)
+// Inlining improves performance (~20%)
 char lexer_current(Lexer* l) {
 	return l->src[l->pos];
 }
 
 // Advances the lexer to the next character
-// Inlining drastically improves performance (~20%)
+// Inlining improves performance (~20%)
 void lexer_advance(Lexer* l) {
 	l->pos++;
 }
@@ -96,37 +96,37 @@ Token lexer_next(Lexer *l) {
 	if (c == '0') {
 		lexer_advance(l);
 		switch(lexer_current(l)) {
-			// Hexadecimal
-			case 'x': {
-				lexer_advance(l);
-				
-				c = lexer_current(l);
-				if (!IS_HEXDIGIT(c)) {
-					TOK(TOK_ERR);	
-				}
-				
-				LEXER_TAKE(IS_HEXDIGIT(c));
-				Token t = { TOK_HEXNUM, s };
-				return t;
+		// Hexadecimal
+		case 'x': {
+			lexer_advance(l);
+			
+			c = lexer_current(l);
+			if (!IS_HEXDIGIT(c)) {
+				TOK(TOK_ERR);	
 			}
-			// Binary
-			case 'b': {
-				lexer_advance(l);
-				
-				c = lexer_current(l);
-				if (!IS_BINDIGIT(c)) {
-					TOK(TOK_ERR);	
-				}
-				
-				LEXER_TAKE(IS_BINDIGIT(c));
-				Token t = { TOK_BINNUM, s };
-				return t;
+			
+			LEXER_TAKE(IS_HEXDIGIT(c));
+			Token t = { TOK_HEXNUM, s };
+			return t;
+		}
+		// Binary
+		case 'b': {
+			lexer_advance(l);
+			
+			c = lexer_current(l);
+			if (!IS_BINDIGIT(c)) {
+				TOK(TOK_ERR);	
 			}
-			// Octal (also handles the literal '0')
-			default:
-				LEXER_TAKE(IS_OCTDIGIT(c));
-				Token t = { TOK_OCTNUM, s };
-				return t;
+			
+			LEXER_TAKE(IS_BINDIGIT(c));
+			Token t = { TOK_BINNUM, s };
+			return t;
+		}
+		// Octal (also handles the literal '0')
+		default:
+			LEXER_TAKE(IS_OCTDIGIT(c));
+			Token t = { TOK_OCTNUM, s };
+			return t;
 		}
 	} else if (IS_DECDIGIT(c)) {
 		// Decimal numbers
@@ -153,9 +153,11 @@ Token lexer_next(Lexer *l) {
 			TOK(TOK_RPAREN);	
 		case ';':
 			// If there is a comment, ignore all characters until end of line
+			// and return the token after thar
 			LEXER_TAKE((c != '\n'));			
 			return lexer_next(l);
 		default:
+			// Syntax error for invalid characters
 			TOK(TOK_ERR);
 	}
 }
