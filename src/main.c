@@ -37,7 +37,10 @@ char *read_file(FILE *f) {
 }
 
 
+// Prints a parse error
 void print_parse_error(char *src, ParseErr *err) {	
+
+	// Moves to the starting line of the error
 	char *ptr = src;
 	for (int i = 1; i < err->line; i++) {
 		while ((*ptr != '\n') && (*ptr != '\0')) {
@@ -52,6 +55,7 @@ void print_parse_error(char *src, ParseErr *err) {
 
 	printf("Error on line %d: %s\n", err->line, err->msg);
 	
+	// Add arrows underneath to point to error position
 	printf("%.*s\n", end - start, start);
 	for (int i = 1; i < err->scol; i++) {
 		if (start[i] == '\t') {
@@ -66,7 +70,9 @@ void print_parse_error(char *src, ParseErr *err) {
 	printf("\n");
 }
 
+// Prints an emit error
 void print_emit_error(char *src, EmitErr *err) {
+	// Moves to the starting line`of the error
 	char *ptr = src;
 	for (int i = 1; i < err->line; i++) {
 		while ((*ptr != '\n') && (*ptr != '\0')) {
@@ -88,18 +94,22 @@ int main(int argc, char *argv[]) {
 		inpath = argv[1];
 		outpath = argv[2];
 	} else if (argc != 1) {
-		printf("Usage: %s [<input> <output>]\n", argv[0]);
+		printf("Usage: %s [<input file> <output file>]\n", argv[0]);
 		return 1;
 	}
 
 	FILE *fin = fopen(inpath, "r");	
+	if (!fin) {
+		printf("Could not open input file\n");
+		return 1;
+	}
+
 	char* src = read_file(fin);
 	fclose(fin);
 
 
 	Lexer l;
 	lexer_init(&l, src);
-
 	Parser p;
 	ParseErr err = {0, "", 0, 0, 0};
 	parser_init(&p, &l);
@@ -110,6 +120,12 @@ int main(int argc, char *argv[]) {
 
 	while(1) {
 		ParseNode pn = parser_next(&p, &err);
+
+		// This error occurs when we already reached the EOF after
+		// the last node, but not when we are in the middle of parsing
+		// an instruction.
+		// So it's used as a signal to indicate that parsing completed
+		// successfully.
 		if (err.is_err) {
 			if (strcmp(err.msg, "EOF while parsing") == 0) break;
 			print_parse_error(src, &err);
@@ -127,6 +143,10 @@ int main(int argc, char *argv[]) {
 
 	EmitErr err2 = {0, "", 0};
 	FILE *fout = fopen(outpath, "wb");
+	if (!fout) {
+		printf("Could not open output file\n");
+		return 1;
+	}	
 	emit_all(fout, nodes, len, &err2);
 	fclose(fout);
 
