@@ -20,4 +20,5 @@ typedef struct EmitErr {
     int line;
 } EmitErr;
 
-void emit_all(FILE *f, ParseNode p[], int num_nodes, EmitErr *err);
+LabelVec find_labels(ParseNode p[], int num_nodes, EmitErr *err);
+void emit_all(char *buf, ParseNode p[], int num_nodes, LabelVec labels, EmitErr *err);

@@ -1,9 +1,10 @@
 CFLAGS= -O2
-CFILES=src/lexer.c src/parser.c src/emitter.c src/main.c
+CFILES=src/asm/lexer.c src/asm/parser.c src/asm/emitter.c src/simulator.c src/main.c
 OUT=./riscv_asm
+CC=clang
 
 riscv_asm: ${CFILES}
-	cc ${CFLAGS} ${CFILES} -o ${OUT}
+	$(CC) ${CFLAGS} ${CFILES} -o ${OUT}
 
 test: riscv_asm
 	./test.sh

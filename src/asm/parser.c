@@ -126,7 +126,7 @@ int parse_number(Parser *p, ParseErr *err) {
         n = strtol(&p->src[p->current.span.start], &end, 8);
         parser_advance(p, err);
 		return n;
-	case TOK_BINNUM:
+	case TOK_BINNUM: ;
 		// strtol doesn't handle `0b` syntax, so we parse the minus
 		// sign ourselves and use strtol for everything after `0b`. 
 		int negative = (p->src[p->current.span.start] == '-');	

@@ -22,9 +22,8 @@ int get_label_pos(LabelVec labels, Label label, EmitErr *err) {
     return -1;
 }
 
-// Emits the hex code corresponding to an instruction
-// to a file.
-void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
+// Returns the hex code corresponding to an instruction
+int encode_ins(ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
     int hex, imm;
     switch (p->type) {
         case R_INS:
@@ -43,7 +42,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 imm = get_label_pos(labels, p->data.i.imm.data.l, err);
                 if (err->is_err) {
                     err->line = p->line;    
-                    return;
+                    return -1;
                 }
             } else {
                 imm = p->data.i.imm.data.n;
@@ -56,7 +55,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate does not fit in 12 bits";
                 err->line = p->line;
-                return;
+                return -1;
             }
 
             // Immediates for shift instructions should fit in 6 bits
@@ -65,7 +64,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate does not fit in 6 bits";
                 err->line = p->line;
-                return;
+                return -1;
             }
 
             // funct6 value for srai
@@ -87,7 +86,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 imm = get_label_pos(labels, p->data.s.imm.data.l, err);
                 if (err->is_err) {
                     err->line = p->line;    
-                    return;
+                    return -1;
                 }
             } else {
                 imm = p->data.s.imm.data.n;
@@ -98,7 +97,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate does not fit in 12 bits";
                 err->line = p->line;
-                return;
+                return -1;
             }
             
             hex =  ((imm >> 5 & 0b1111111) << 25)
@@ -115,7 +114,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 imm = get_label_pos(labels, p->data.b.imm.data.l, err) - pc;
                 if (err->is_err) {
                     err->line = p->line;    
-                    return;
+                    return -1;
                 }
             } else {
                 imm = p->data.b.imm.data.n;
@@ -127,7 +126,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate is not an even number";
                 err->line = p->line;
-                return;
+                return -1;
             }
 
             // Bounds checking for immediate 
@@ -135,7 +134,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate does not fit in 12 bits";
                 err->line = p->line;
-                return;
+                return -1;
             }
             
             hex = ((imm >> 12 & 1) << 31)
@@ -154,7 +153,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 imm = get_label_pos(labels, p->data.u.imm.data.l, err);
                 if (err->is_err) {
                     err->line = p->line;    
-                    return;
+                    return -1;
                 }
             } else {
                 imm = p->data.u.imm.data.n;
@@ -165,7 +164,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate does not fit in 20 bits";
                 err->line = p->line;
-                return;
+                return -1;
             }
 
             hex = (imm << 12)
@@ -179,7 +178,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 imm = get_label_pos(labels, p->data.b.imm.data.l, err) - pc;
                 if (err->is_err) {
                     err->line = p->line;    
-                    return;
+                    return -1;
                 }
             } else {
                 imm = p->data.b.imm.data.n;
@@ -190,7 +189,7 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                 err->is_err = 1;
                 err->msg = "Immediate does not fit in 20 bits";
                 err->line = p->line;
-                return;
+                return -1;
             }
 
             hex = ((imm >> 20 & 1) << 31)
@@ -202,13 +201,23 @@ void emit_ins(FILE *f, ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
             break;
     }
 
-    // Prints the hex representation to the file
-    fprintf(f, "%08x\n", hex);
+    return hex;
 }
 
 // Enumerates 
-void emit_all(FILE *f, ParseNode p[], int num_nodes, EmitErr *err) {
+void emit_all(char *buf, ParseNode p[], int num_nodes, LabelVec labels, EmitErr *err) {
+    // Emit instructions
+    int pc = 0;
+    for (int i = 0; i < num_nodes; i++) {
+        if (p[i].type != LABEL) {
+            buf[pc/4] = encode_ins(&p[i], labels, pc, err);
+            if (err->is_err) return;
+            pc += 4;
+        }
+    }
+}
 
+LabelVec find_labels(ParseNode p[], int num_nodes, EmitErr *err) {
     // Enumerates labels
     LabelVec labels = {0, 0, NULL}; 
     labels.data = malloc(LE_CHUNK_SIZE * sizeof(LabelEntry));
@@ -228,7 +237,7 @@ void emit_all(FILE *f, ParseNode p[], int num_nodes, EmitErr *err) {
                     err->is_err = 1;
                     err->msg = "Duplicate definition of label";
                     err->line = p[i].line;
-                    return;
+                    return labels;
                 }
             }
 
@@ -244,15 +253,8 @@ void emit_all(FILE *f, ParseNode p[], int num_nodes, EmitErr *err) {
         err->is_err = 1;
         err->msg = "Label without instruction";
         err->line = p[num_nodes-1].line;
-        return;
+        return labels;
     }
 
-    // Emit instructions
-    int pc = 0;
-    for (int i = 0; i < num_nodes; i++) {
-        if (p[i].type != LABEL) {
-            emit_ins(f, &p[i], labels, pc, err);
-            pc += 4;
-        }
-    }
+    return labels;
 }
