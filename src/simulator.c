@@ -167,7 +167,7 @@ void sim_run(Simulator *s) {
                 rs2_idx = (ins >> 20) & 0b11111,
                 funct7 = (ins >> 25) & 0b1111111;
 
-            uint64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
+            int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
             
             switch(funct3) {
                 case 0x0:
@@ -179,7 +179,37 @@ void sim_run(Simulator *s) {
                 case 0x4: // xor
                     rd = rs1 ^ rs2;
                     break;
+				case 0x6: // or
+					rd = rs1 | rs2;
+					break;
+				case 0x7: // and
+					rd = rs1 & rs2;
+					break;
+				case 0x1: // sll
+					rd = rs1 << rs2;
+					break;
+				case 0x5: 
+					switch(funct7){
+                    	case 0x20: rd = rs1 >> rs2; break; // sra                   
+                    	case 0x00: //srl
+							if (rs1<<63 == 1){
+								rd = (int64_t) ((u_int64_t)(rs1) >> (u_int64_t)(rs2));
+								break;
+							}
+							else {	
+								rd = rs1 >> rs2; 
+								break;
+							}
+					}					
+				case 0x2: // slt
+					rd = (rs1 < rs2)?1:0;
+					break;
+				case 0x3: // sltu
+					rd = (int64_t)((u_int64_t)rs1 < (u_int64_t)rs2)?1:0;
+					break;
+
             }
+
 
             s->regs[rd_idx] = rd;
             break;
