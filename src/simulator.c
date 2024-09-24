@@ -214,11 +214,11 @@ void sim_run(Simulator *s) {
             break;
 		}
 
-		case 0b0010011:{ // I format
+		case 0b0010011:{ // I format arithmetic instructions
             int rd_idx = (ins >> 7) & 0b11111,
                 funct3 = (ins >> 12) & 0b111,
                 rs1_idx = (ins >> 15) & 0b11111,
-                imm = (ins >> 20) & 0b111111111111;
+                imm = (ins >> 20) & 0b111111111111; // to make it a 12-bit number, shouldn't make a difference
 
             int64_t rs1 = s->regs[rs1_idx], rd;
             
@@ -226,7 +226,7 @@ void sim_run(Simulator *s) {
                 case 0x0:
 					rd = rs1 + imm;  // addi           
                     break;
-                case 0x4: // xor
+                case 0x4: 
                     rd = rs1 ^ imm; //xori
                     break;
 				case 0x6: // ori
@@ -269,56 +269,50 @@ void sim_run(Simulator *s) {
             s->regs[rd_idx] = rd;
             break;
 		}
-		case 0b0000011:{ // I format but load instructions
+		case 0b0000011:{ // I format load instructions
             int rd_idx = (ins >> 7) & 0b11111,
                 funct3 = (ins >> 12) & 0b111,
                 rs1_idx = (ins >> 15) & 0b11111,
                 imm = (ins >> 20) & 0b111111111111;
 
             int64_t rs1 = s->regs[rs1_idx], rd;
+			int64_t address = rs1 + imm;
+			int64_t mem_value = *(int64_t*)(&s->mem[address]); // take out the entire 64 bit value
+			u_int64_t unsigned_mem_value = (u_int64_t) mem_value;
             
             switch(funct3) {
-                case 0x0:
-					rd = rs1 + imm;  // addi           
+                case 0x0:{ //lb
+					int8_t eight_bit_num = (mem_value << 56) >> 56;
+					rd = (int64_t) eight_bit_num;       
                     break;
-                case 0x4: // xor
-                    rd = rs1 ^ imm; //xori
-                    break;
-				case 0x6: // ori
-					rd = rs1 | imm;
-					break;
-				case 0x7: // andi
-
-					rd = rs1 & imm;
-					break;
-				case 0x1:{ // slli
-					int imm_second6 = imm & 0b000000111111;
-					rd = rs1 << (imm_second6);
-					break;
 				}
-				case 0x5: {
-					int imm_first6 = imm>>6;
-					int imm_second6 = imm & 0b000000111111;
-					switch(imm_first6){
-                    	case 0x10: rd = rs1 >> imm_second6; break; // srai                  
-                    	case 0x00: //srli
-							if (rs1>>63 == -1){ // if the leading digit is 1
-								rd = (int64_t) ((u_int64_t)(rs1) >> imm_second6);
-								break;
-							}
-							else {	// if the leading digit is 0
-								rd = rs1 >> imm_second6; 
-								break;
-							}
-					}
+                case 0x1:{ // lh
+                    int16_t sixteen_bit_num = (mem_value << 48) >> 48; 
+					rd = (int64_t) sixteen_bit_num;
+                    break;
+				}
+				case 0x2: // lw
+                    int32_t thirtytwo_bit_num = (mem_value << 32) >> 32; 
+					rd = (int64_t) thirtytwo_bit_num;
+                    break;
+				case 0x3: // ld
+					rd = mem_value;
+					break;
+				case 0x4:{ // lbu
+					u_int8_t eight_bit_num = (unsigned_mem_value << 56) >> 56;
+					rd = (int64_t) eight_bit_num;       
+                    break;
+				}
+				case 0x5: { // lhu
+					u_int16_t sixteen_bit_num = (unsigned_mem_value << 48) >> 48;
+					rd = (int64_t) sixteen_bit_num;       
+                    break;
 				}					
-				case 0x2: // slti
-					rd = (rs1 < imm)?1:0; // rs1 and imm are signed integers by default
-					break;
-				case 0x3: // sltiu
-					rd = ((u_int64_t)rs1 < imm)?1:0;
-					break;
-
+				case 0x6:{ // lwu
+                    u_int32_t thirtytwo_bit_num = (unsigned_mem_value << 32) >> 32; 
+					rd = (int64_t) thirtytwo_bit_num;
+                    break;
+				}
             }
 			
             s->regs[rd_idx] = rd;
