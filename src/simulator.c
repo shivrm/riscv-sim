@@ -160,12 +160,12 @@ void sim_run(Simulator *s) {
     int opcode = ins & 0b1111111;
 
     switch (opcode) {
-        case 0b0110011: ;// R format
-            int rd_idx = (ins >> 7) & 0b11111,
-                funct3 = (ins >> 12) & 0b111,
-                rs1_idx = (ins >> 15) & 0b11111,
-                rs2_idx = (ins >> 20) & 0b11111,
-                funct7 = (ins >> 25) & 0b1111111;
+        case 0b0110011:{// R format
+            int rd_idx = (ins >> 7) & 0b11111;
+            int funct3 = (ins >> 12) & 0b111;
+            int rs1_idx = (ins >> 15) & 0b11111;
+            int rs2_idx = (ins >> 20) & 0b11111;
+            int funct7 = (ins >> 25) & 0b1111111;
 
             int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
             
@@ -192,7 +192,7 @@ void sim_run(Simulator *s) {
 					switch(funct7){
                     	case 0x20: rd = rs1 >> rs2; break; // sra                   
                     	case 0x00: //srl
-							if (rs1<<63 == 1){
+							if (rs1>>63 == -1){ // if the first bit is -1
 								rd = (int64_t) ((u_int64_t)(rs1) >> (u_int64_t)(rs2));
 								break;
 							}
@@ -205,14 +205,125 @@ void sim_run(Simulator *s) {
 					rd = (rs1 < rs2)?1:0;
 					break;
 				case 0x3: // sltu
-					rd = (int64_t)((u_int64_t)rs1 < (u_int64_t)rs2)?1:0;
+					rd = ((int64_t)((u_int64_t)rs1 < (u_int64_t)rs2))?1:0;
+					break;
+
+            }
+	
+            s->regs[rd_idx] = rd;
+            break;
+		}
+
+		case 0b0010011:{ // I format
+            int rd_idx = (ins >> 7) & 0b11111,
+                funct3 = (ins >> 12) & 0b111,
+                rs1_idx = (ins >> 15) & 0b11111,
+                imm = (ins >> 20) & 0b111111111111;
+
+            int64_t rs1 = s->regs[rs1_idx], rd;
+            
+            switch(funct3) {
+                case 0x0:
+					rd = rs1 + imm;  // addi           
+                    break;
+                case 0x4: // xor
+                    rd = rs1 ^ imm; //xori
+                    break;
+				case 0x6: // ori
+					rd = rs1 | imm;
+					break;
+				case 0x7: // andi
+
+					rd = rs1 & imm;
+					break;
+				case 0x1:{ // slli
+					int imm_second6 = imm & 0b000000111111;
+					rd = rs1 << (imm_second6);
+					break;
+				}
+				case 0x5: {
+					int imm_first6 = imm>>6;
+					int imm_second6 = imm & 0b000000111111;
+					switch(imm_first6){
+                    	case 0x10: rd = rs1 >> imm_second6; break; // srai                  
+                    	case 0x00: //srli
+							if (rs1>>63 == -1){ // if the leading digit is 1
+								rd = (int64_t) ((u_int64_t)(rs1) >> imm_second6);
+								break;
+							}
+							else {	// if the leading digit is 0
+								rd = rs1 >> imm_second6; 
+								break;
+							}
+					}
+				}					
+				case 0x2: // slti
+					rd = (rs1 < imm)?1:0; // rs1 and imm are signed integers by default
+					break;
+				case 0x3: // sltiu
+					rd = ((u_int64_t)rs1 < imm)?1:0;
 					break;
 
             }
 
-
             s->regs[rd_idx] = rd;
             break;
+		}
+		case 0b0000011:{ // I format but load instructions
+            int rd_idx = (ins >> 7) & 0b11111,
+                funct3 = (ins >> 12) & 0b111,
+                rs1_idx = (ins >> 15) & 0b11111,
+                imm = (ins >> 20) & 0b111111111111;
+
+            int64_t rs1 = s->regs[rs1_idx], rd;
+            
+            switch(funct3) {
+                case 0x0:
+					rd = rs1 + imm;  // addi           
+                    break;
+                case 0x4: // xor
+                    rd = rs1 ^ imm; //xori
+                    break;
+				case 0x6: // ori
+					rd = rs1 | imm;
+					break;
+				case 0x7: // andi
+
+					rd = rs1 & imm;
+					break;
+				case 0x1:{ // slli
+					int imm_second6 = imm & 0b000000111111;
+					rd = rs1 << (imm_second6);
+					break;
+				}
+				case 0x5: {
+					int imm_first6 = imm>>6;
+					int imm_second6 = imm & 0b000000111111;
+					switch(imm_first6){
+                    	case 0x10: rd = rs1 >> imm_second6; break; // srai                  
+                    	case 0x00: //srli
+							if (rs1>>63 == -1){ // if the leading digit is 1
+								rd = (int64_t) ((u_int64_t)(rs1) >> imm_second6);
+								break;
+							}
+							else {	// if the leading digit is 0
+								rd = rs1 >> imm_second6; 
+								break;
+							}
+					}
+				}					
+				case 0x2: // slti
+					rd = (rs1 < imm)?1:0; // rs1 and imm are signed integers by default
+					break;
+				case 0x3: // sltiu
+					rd = ((u_int64_t)rs1 < imm)?1:0;
+					break;
+
+            }
+			
+            s->regs[rd_idx] = rd;
+            break;
+		}
     }
 
     s->pc += 4;
