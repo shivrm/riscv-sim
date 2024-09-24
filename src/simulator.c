@@ -388,7 +388,53 @@ void sim_run(Simulator *s) {
             break;
 		}
 
-		
+		case 0b0110111:{ // lui
+			int rd_idx = (ins >> 7) & 0b11111;
+			long int imm = (ins>>12);
+
+
+			int64_t rd = ((int64_t)(imm<<44))>>32; // we have to do msb extend
+			s->regs[rd_idx] = rd;
+			break;
+		}
+		case 0b0010111:{ //auipc
+			int rd_idx = (ins >> 7) & 0b11111,
+				imm = (ins>>12);
+
+
+			int64_t rd = (imm<<12) + s->pc; // we don't have to do msb extend?
+			s->regs[rd_idx] = rd;
+			break;
+		}
+		case 0b01101111:{ //jal
+			int rd_idx = (ins >> 7) & 0b11111,
+				imm;
+			imm = ((ins>>31)<< 19) + // 20
+            	(((ins>>12)& 0b11111111) << 11) + // 19:12
+            	(((ins >>20) & 0b1) << 10) + //11
+            	((ins>>21) & 0b1111111111); // 10:1
+			imm = imm <<1; // note that imm is a signed immediate
+			int64_t rd = s->pc + 4;
+			s->pc += imm;
+			s->regs[rd_idx] = rd;
+			break;
+		}
+		case 0b1100111:{ //jalr
+            int rd_idx = (ins >> 7) & 0b11111,
+                funct3 = (ins >> 12) & 0b111,
+                rs1_idx = (ins >> 15) & 0b11111,
+                imm = ins >> 20;
+
+            int64_t rs1 = s->regs[rs1_idx], rd;
+
+			rd = s->pc + 4;
+			s->pc = rs1 + imm; // return address + immediate;
+
+			s->regs[rd_idx] = rd;
+			break;
+		}
+
+
     }
 
     s->pc += 4;
