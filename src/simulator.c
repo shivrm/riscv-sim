@@ -161,11 +161,11 @@ void sim_run(Simulator *s) {
 
     switch (opcode) {
         case 0b0110011:{// R format
-            int rd_idx = (ins >> 7) & 0b11111;
-            int funct3 = (ins >> 12) & 0b111;
-            int rs1_idx = (ins >> 15) & 0b11111;
-            int rs2_idx = (ins >> 20) & 0b11111;
-            int funct7 = (ins >> 25) & 0b1111111;
+            int rd_idx = (ins >> 7) & 0b11111,
+        		funct3 = (ins >> 12) & 0b111,
+            	rs1_idx = (ins >> 15) & 0b11111,
+            	rs2_idx = (ins >> 20) & 0b11111,
+            	funct7 = (ins >> 25) & 0b1111111;
 
             int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
             
@@ -215,10 +215,11 @@ void sim_run(Simulator *s) {
 		}
 
 		case 0b0010011:{ // I format arithmetic instructions
+			ins = (int32_t) ins;
             int rd_idx = (ins >> 7) & 0b11111,
                 funct3 = (ins >> 12) & 0b111,
                 rs1_idx = (ins >> 15) & 0b11111,
-                imm = (ins >> 20) & 0b111111111111; // to make it a 12-bit number, shouldn't make a difference
+                imm = ins >> 20;
 
             int64_t rs1 = s->regs[rs1_idx], rd;
             
@@ -270,10 +271,11 @@ void sim_run(Simulator *s) {
             break;
 		}
 		case 0b0000011:{ // I format load instructions
+			ins = (int32_t) ins;
             int rd_idx = (ins >> 7) & 0b11111,
                 funct3 = (ins >> 12) & 0b111,
                 rs1_idx = (ins >> 15) & 0b11111,
-                imm = (ins >> 20) & 0b111111111111;
+                imm = (ins >> 20);
 
             int64_t rs1 = s->regs[rs1_idx], rd;
 			int64_t address = rs1 + imm;
@@ -291,10 +293,11 @@ void sim_run(Simulator *s) {
 					rd = (int64_t) sixteen_bit_num;
                     break;
 				}
-				case 0x2: // lw
+				case 0x2:{ // lw
                     int32_t thirtytwo_bit_num = (mem_value << 32) >> 32; 
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
+				}
 				case 0x3: // ld
 					rd = mem_value;
 					break;
@@ -318,6 +321,74 @@ void sim_run(Simulator *s) {
             s->regs[rd_idx] = rd;
             break;
 		}
+		case 0b0100011:{ // S format store instructions
+			ins = (int32_t) ins;
+            int funct3 = (ins >> 12) & 0b111,
+                rs1_idx = (ins >> 15) & 0b11111,
+				rs2_idx = (ins >> 20) & 0b11111,
+                imm = (ins>>7 & 0b11111) + ((ins>>25)<<5); // making sure that the sign remains.
+
+            int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
+			int64_t address = rs1 + imm;
+            
+            switch(funct3) {
+                case 0x0:{ //sb
+					*(u_int8_t*)(&s->mem[address]) = (rs2 << 56)>>56; // i think this works just fine without the pointer typecasting
+                    break;
+				}
+                case 0x1:{ // sh
+					*(u_int16_t*)(&s->mem[address]) = (rs2 << 48)>>48;
+                    break;
+				}
+				case 0x2: // sw
+					*(u_int32_t*)(&s->mem[address]) = (rs2 << 32)>>32;
+                    break;
+				case 0x3: // sd
+					*(u_int64_t*)(&s->mem[address]) = rs2 ;
+					break;
+			}
+            break;
+		}
+		case 0b1100011:{ // B format branch instructions
+			ins = (int32_t) ins;
+            int funct3 = (ins >> 12) & 0b111,
+                rs1_idx = (ins >> 15) & 0b11111,
+				rs2_idx = (ins >> 20) & 0b11111,
+                imm;
+			imm = ((ins>>31)<< 11) + // 12
+            	(((ins>>7)& 0b1) << 10) + // 11
+            	(((ins >>25) & 0b111111) << 4) + //10:5
+            	((ins>>8) & 0b1111); // 4:1
+			imm = imm <<1;
+            int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
+			int64_t address = rs1 + imm;
+            
+            switch(funct3) {
+                case 0x0:{ //beq
+					if (rs1 == rs2) s->pc += imm-4;
+                    break;
+				}
+                case 0x1:{ // bne
+					if (rs1 != rs2) s->pc += imm-4;
+                    break;
+				}
+				case 0x4: // blt
+					if (rs1 < rs2) s->pc += imm-4;
+                    break;
+				case 0x5: // bge
+					if (rs1 >= rs2) s->pc += imm-4;
+					break;
+				case 0x6: // bltu
+					if ((u_int64_t)rs1 < (u_int64_t)rs2) s->pc += imm-4;
+					break;
+				case 0x7: // bgeu
+					if ((u_int64_t)rs1 >= (u_int64_t)rs2) s->pc += imm-4;
+					break;
+			}
+            break;
+		}
+
+		
     }
 
     s->pc += 4;
