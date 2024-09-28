@@ -199,18 +199,23 @@ int encode_ins(ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
                     | (p->data.u.rd << 7)
                     | (p->data.u.entry->opcode);
             break;
+
+        case LABEL: 
+            break;
     }
 
     return hex;
 }
 
 // Enumerates 
-void emit_all(char *buf, ParseNode p[], int num_nodes, LabelVec labels, EmitErr *err) {
+void emit_all(uint8_t *buf, ParseNode p[], int num_nodes, LabelVec labels, EmitErr *err) {
     // Emit instructions
     int pc = 0;
     for (int i = 0; i < num_nodes; i++) {
         if (p[i].type != LABEL) {
-            buf[pc/4] = encode_ins(&p[i], labels, pc, err);
+            int ins = encode_ins(&p[i], labels, pc, err);
+            *(uint32_t*)(&buf[pc]) = ins;
+
             if (err->is_err) return;
             pc += 4;
         }

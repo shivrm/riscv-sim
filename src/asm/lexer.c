@@ -141,6 +141,11 @@ Token lexer_next(Lexer *l) {
 	// Single character tokens
 	lexer_advance(l);
 	switch (c) {
+		// Directives like '.data', '.text', etc
+		case '.':
+			LEXER_TAKE(IS_IDENTCHAR(c));
+			Token t = { TOK_DIRECTIVE, s };
+			return t;
 		case '\0':
 			TOK(TOK_EOF);
 		case ',':

@@ -8,6 +8,7 @@
 
 #define BUF_CHUNK_SIZE 4096
 #define PN_CHUNK_SIZE 4096
+#define DATA_SEGMENT_START 0x10000 
 
 // Reads an entire file into a buffer
 char *read_file(FILE *f) {
@@ -56,7 +57,7 @@ void print_parse_error(char *src, ParseErr *err) {
 	printf("Error on line %d: %s\n", err->line, err->msg);
 	
 	// Add arrows underneath to point to error position
-	printf("%.*s\n", end - start, start);
+	printf("%.*s\n", (int)(end - start), start);
 	for (int i = 1; i < err->scol; i++) {
 		if (start[i] == '\t') {
 			printf("\t");
@@ -85,7 +86,7 @@ void print_emit_error(char *src, EmitErr *err) {
 	char *end = ptr;
 
 	printf("Error on line %d: %s\n", err->line, err->msg);	
-	printf("%.*s\n", end - start, start);
+	printf("%.*s\n", (int)(end - start), start);
 }
 
 
@@ -109,48 +110,37 @@ int sim_load(Simulator *s, char *file) {
 	ParseErr err = {0, "", 0, 0, 0};
 	parser_init(&p, &l);
 
-	// Dynamic array for storing arbitrary number of nodes
-	size_t len = 0, cap = 0;
-	ParseNode *nodes = NULL;
+	ParseNodeVec pn = {0};
+	DataVec d = {0};
 
-	while(1) {
-		ParseNode pn = parser_next(&p, &err);
-
-		// This error occurs when we already reached the EOF after
-		// the last node, but not when we are in the middle of parsing
-		// an instruction.
-		// So it's used as a signal to indicate that parsing completed
-		// successfully.
-		if (err.is_err) {
-			if (strcmp(err.msg, "EOF while parsing") == 0) break;
-			print_parse_error(src, &err);
-			return 1;
-		}
-
-		// If capacity is reached, then grow the array
-		if (len == cap) {
-			nodes = realloc(nodes, (cap + PN_CHUNK_SIZE) * sizeof(ParseNode));
-			cap += PN_CHUNK_SIZE;
-		}
-
-		nodes[len++] = pn;	
+	parse_all(&p, &pn, &d, &err);
+	if (err.is_err) {
+		print_parse_error(src, &err);
+		return 1;
 	}
 
 	EmitErr err2 = {0, "", 0};
-    LabelVec labels = find_labels(nodes, len, &err2);
+    LabelVec labels = find_labels(pn.data, pn.len, &err2);
 	if (err2.is_err) {
 		print_emit_error(src, &err2);
 		return -1;
 	}
 
-	emit_all(s->mem, nodes, len, labels, &err2);
+	emit_all(s->mem, pn.data, pn.len, labels, &err2);
 	if (err2.is_err) {
 		print_emit_error(src, &err2);
 		return -1;
 	}
 
     s->src = src;
-    s->nodes = nodes;  
+    s->nodes = pn.data;  
+
+	// Copy d into data segment
+	for (int i = 0; i < d.len; i++) {
+		s->mem[DATA_SEGMENT_START + i] = d.data[i];	
+	}
+
+	return 0;
 }
 
 void sim_run(Simulator *s) {
@@ -281,7 +271,7 @@ void sim_run(Simulator *s) {
 			int64_t address = rs1 + imm;
 			int64_t mem_value = *(int64_t*)(&s->mem[address]); // take out the entire 64 bit value
 			u_int64_t unsigned_mem_value = (u_int64_t) mem_value;
-            
+
             switch(funct3) {
                 case 0x0:{ //lb
 					int8_t eight_bit_num = (mem_value << 56) >> 56;
@@ -439,3 +429,12 @@ void sim_run(Simulator *s) {
 
     s->pc += 4;
 }
+
+void sim_run_all(Simulator *s) {
+    uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
+
+	while (ins) {
+		sim_run(s);
+		ins = *(uint32_t*)(&s->mem[s->pc]);
+	}
+} 

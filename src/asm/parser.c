@@ -35,6 +35,8 @@ char *token_type_to_str(TokenType tt) {
 		case TOK_HEXNUM: return "hex number";
 		case TOK_OCTNUM: return "octal number";
 		case TOK_IDENT:  return "identifier";
+		case TOK_DIRECTIVE: return "directive";
+		default: return "token";
 	}
 }
 
@@ -43,6 +45,7 @@ void parser_init(Parser *p, Lexer *l) {
 	p->lexer = l;
 	p->src = l->src;
 	p->current = lexer_next(l);
+	p->text_section = 1;
 }
 
 // Moves the parser to the next token
@@ -318,9 +321,8 @@ JIns parse_j_ins(Parser *p, JInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
-// Returns the next node in the parse tree
-ParseNode parser_next(Parser *p, ParseErr *err) {	
-	ParseNode sentinel; // Zero object to be returned in case of error
+ParseNode parse_text_element(Parser *p, ParseErr *err) {	
+	ParseNode sentinel = {0}; // Zero object to be returned in case of error
 
 	// Checks if instruction is R-format and parses
 	for (int i = 0; i < sizeof(r_ins_table)/sizeof(RInsTableEntry); i++) {
@@ -446,4 +448,87 @@ ParseNode parser_next(Parser *p, ParseErr *err) {
 		p->lexer->line - 1,
     };
     return node;
+}
+
+void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
+	if (parser_tteq(p, ".word")) {
+		parser_advance(p, err);
+		if (err->is_err) return;
+
+		while (1) {
+			switch (p->current.type) {
+			
+			case TOK_BINNUM:
+			case TOK_HEXNUM:
+			case TOK_OCTNUM:
+			case TOK_DECNUM: ;
+				int n = parse_number(p, err);
+				if (err->is_err) return;
+
+				if (d->len - d->cap < 4) {
+					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
+					d->cap += 1024;			
+				}
+
+				*(uint32_t*)(&d->data[d->len]) = n;
+				d->len += 4;
+				return;
+			case TOK_COMMA:
+				parser_advance(p, err);
+				if (err->is_err) return;
+			default: 
+				err->is_err = 1;
+				err->line = p->lexer->line;
+				err->msg = "Unknown token"; 
+				return;	
+			}
+		}
+	} else {
+		err->is_err = 1;
+		err->line = p->lexer->line;
+		err->msg = "Unknown token"; 
+		return;
+	}
+}
+
+void parse_one(Parser *p, ParseNodeVec *pn, DataVec *d, ParseErr *err) {
+	if (p->current.type == TOK_DIRECTIVE) {
+		if (parser_tteq(p, ".data")) {
+			parser_advance(p, err);
+			p->text_section = 0;
+			parse_one(p, pn, d, err);
+			return;
+		} else if (parser_tteq(p, ".text")) {
+			parser_advance(p, err);
+			p->text_section = 1;
+			parse_one(p, pn, d, err);
+			return;
+		}
+	}
+
+	if (p->text_section) {
+		if (pn->cap == pn->len) {
+            pn->data = realloc(pn->data, (pn->cap + 1024) * sizeof(ParseNode));
+            pn->cap += 1024;
+		}
+
+		pn->data[pn->len++] = parse_text_element(p, err);
+		return;
+	} else {
+		parse_data_element(p, d, err);
+		return;
+	}
+}
+
+void parse_all(Parser *p, ParseNodeVec *pn, DataVec *d, ParseErr *err) {
+	while (1) {
+		parse_one(p, pn, d, err);
+		if (err->is_err) {
+			if (strcmp(err->msg, "EOF while parsing") == 0) {
+				pn->len--;
+				err->is_err = 0;
+			}
+			return;
+		}
+	}
 }

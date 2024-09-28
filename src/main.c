@@ -7,14 +7,12 @@
 
 int main(void) {
     Simulator s = {0};
-    
-    // add x1, x2, x3
-    ((uint32_t*)s.mem)[0] = 0x003100b3;
+        
+    sim_load(&s, "input.s");
 
     s.regs[2] = 10;
     s.regs[3] = 20;
-
-
-    sim_run(&s);
+    
+    sim_run_all(&s);
     printf("%lu\n", s.regs[1]);
 }

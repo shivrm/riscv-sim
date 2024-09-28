@@ -14,4 +14,6 @@ typedef struct Simulator {
     LabelVec *labels;
 } Simulator;
 
+int sim_load(Simulator *s, char *file);
 void sim_run(Simulator *s);
+void sim_run_all(Simulator *s);

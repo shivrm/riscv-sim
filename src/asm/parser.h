@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #define PARSER_H
 
 #ifndef LEXER_H
@@ -12,6 +14,7 @@ typedef struct Parser {
 	Token current;
 	Lexer *lexer;
 	char *src;
+	int text_section;
 } Parser;
 
 typedef struct Label {
@@ -85,5 +88,16 @@ typedef struct ParseNode {
 	int line;
 } ParseNode;
 
+typedef struct ParseNodeVec {
+	size_t len, cap;
+	ParseNode *data;
+} ParseNodeVec;
+
+typedef struct DataVec {
+	size_t len, cap;
+	uint8_t *data;
+} DataVec;
+
 void parser_init(Parser *p, Lexer *l);
 ParseNode parser_next(Parser *p, ParseErr *err);
+void parse_all(Parser *p, ParseNodeVec *pn, DataVec *d, ParseErr *err);

@@ -9,6 +9,7 @@ typedef struct Span {
 typedef enum TokenType {
 	TOK_EOF, TOK_ERR, // Tokens for end-of-file and syntax errors
 
+	TOK_DIRECTIVE,
 	TOK_IDENT, TOK_DECNUM, TOK_BINNUM, TOK_HEXNUM, TOK_OCTNUM,
 	TOK_COMMA, TOK_COLON, TOK_LPAREN, TOK_RPAREN,
 } TokenType;
