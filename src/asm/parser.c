@@ -472,20 +472,20 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 
 				*(uint32_t*)(&d->data[d->len]) = n;
 				d->len += 4;
-				return;
+				break;
 			case TOK_COMMA:
 				parser_advance(p, err);
 				if (err->is_err) return;
+				break;
 			default: 
-				err->is_err = 1;
-				err->line = p->lexer->line;
-				err->msg = "Unknown token"; 
 				return;	
 			}
 		}
 	} else {
 		err->is_err = 1;
 		err->line = p->lexer->line;
+		err->scol = p->current.span.start;
+		err->ecol = p->current.span.end;
 		err->msg = "Unknown token"; 
 		return;
 	}

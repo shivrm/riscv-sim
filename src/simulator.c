@@ -211,6 +211,9 @@ void sim_run(Simulator *s) {
                 rs1_idx = (ins >> 15) & 0b11111,
                 imm = ins >> 20;
 
+			// Sign extension
+			imm = imm | (0xfffff000 * (imm >> 11));
+
             int64_t rs1 = s->regs[rs1_idx], rd;
             
             switch(funct3) {
@@ -267,6 +270,9 @@ void sim_run(Simulator *s) {
                 rs1_idx = (ins >> 15) & 0b11111,
                 imm = (ins >> 20);
 
+			// Sign extension
+			imm = imm | (0xfffff000 * (imm >> 11));
+   
             int64_t rs1 = s->regs[rs1_idx], rd;
 			int64_t address = rs1 + imm;
 			int64_t mem_value = *(int64_t*)(&s->mem[address]); // take out the entire 64 bit value
@@ -349,10 +355,11 @@ void sim_run(Simulator *s) {
             	(((ins>>7)& 0b1) << 10) + // 11
             	(((ins >>25) & 0b111111) << 4) + //10:5
             	((ins>>8) & 0b1111); // 4:1
-			imm = imm <<1;
+			imm = imm << 1;
+			imm = imm | (0xffffe000 * (imm >> 12));
             int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
 			int64_t address = rs1 + imm;
-            
+
             switch(funct3) {
                 case 0x0:{ //beq
 					if (rs1 == rs2) s->pc += imm-4;
