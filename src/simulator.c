@@ -356,7 +356,7 @@ void sim_run(Simulator *s) {
             	(((ins >>25) & 0b111111) << 4) + //10:5
             	((ins>>8) & 0b1111); // 4:1
 			imm = imm << 1;
-			imm = imm | (0xffffe000 * (imm >> 12));
+			imm = imm | (0xffffe000 * (imm >> 12)); // sign extension to 32 bits
             int64_t rs1 = s->regs[rs1_idx], rs2 = s->regs[rs2_idx], rd;
 			int64_t address = rs1 + imm;
 
@@ -437,11 +437,55 @@ void sim_run(Simulator *s) {
     s->pc += 4;
 }
 
-void sim_run_all(Simulator *s) {
+void regs(Simulator *s, char* registers){
+    int len = 0;  // Track the current length of the string in buffer
+    unsigned int register_size = 600;  // Full size of the registers string
+
+    for (int i = 0; i <= 31; i++) {
+        // Append a new line to registers in each loop iteration
+        len += snprintf(registers + len, register_size - len, "x%d = 0x%llx \n", i, s->regs[i]);
+        if (len >= register_size) {
+            printf("Overflow!\n");
+            break;
+        }
+    }
+
+	if (len < register_size){ // manually null-terminate, just in case
+		registers[len] = '\0';
+	}
+
+}
+
+char* mem(Simulator *s, int address, int count, char* string){
+	int len = 0;
+	unsigned int string_size = count*40;
+	string = (char*) malloc(string_size);
+
+	int current_address = address;
+	int final_address = address + (count-1);
+	while (current_address <= final_address){
+		len += snprintf(string + len, string_size - len, "Memory[0x%x] = 0x%x \n",
+						 current_address, s->mem[current_address]);
+		current_address += 1;
+        if (len >= string_size) {
+            printf("Overflow!\n");
+            break;
+        }
+	}
+	if (len < string_size){ // manually null-terminate, just in case
+		string[len] = '\0';
+	}
+
+	return string;
+
+}
+
+void sim_run_all(Simulator *s) { //run command
     uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
 
 	while (ins) {
 		sim_run(s);
 		ins = *(uint32_t*)(&s->mem[s->pc]);
+		//printf("Done with instruction\n");
 	}
 } 
