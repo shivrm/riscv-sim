@@ -112,9 +112,9 @@ int parse_register(Parser *p, ParseErr *err) {
 }
 
 // Parses a number
-int parse_number(Parser *p, ParseErr *err) {
+long parse_number(Parser *p, ParseErr *err) {
     char *end;
-	int n;
+	long n;
 
     switch (p->current.type) {
     case TOK_DECNUM:
@@ -323,6 +323,7 @@ JIns parse_j_ins(Parser *p, JInsTableEntry *entry, ParseErr *err) {
 
 ParseNode parse_text_element(Parser *p, ParseErr *err) {	
 	ParseNode sentinel = {0}; // Zero object to be returned in case of error
+	int line = p->lexer->line;
 
 	// Checks if instruction is R-format and parses
 	for (int i = 0; i < sizeof(r_ins_table)/sizeof(RInsTableEntry); i++) {
@@ -332,7 +333,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				R_INS,
 				{ .r = parse_r_ins(p, &r_ins_table[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -346,7 +347,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				I_INS,
 				{ .i = parse_i_ins(p, &i_ins_table[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -360,7 +361,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				I_INS,
 				{ .i = parse_i_ins_2(p, &i_ins_table_2[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -374,7 +375,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				S_INS,
 				{ .s = parse_s_ins(p, &s_ins_table[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -388,7 +389,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				B_INS,
 				{ .b = parse_b_ins(p, &b_ins_table[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -402,7 +403,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				U_INS,
 				{ .u = parse_u_ins(p, &u_ins_table[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -416,7 +417,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
 			ParseNode node = {
 				J_INS,
 				{ .j = parse_j_ins(p, &j_ins_table[i], err) },
-				p->lexer->line - 1,
+				line,
 			};
 			return node;
 		}
@@ -445,13 +446,13 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
     ParseNode node = {
         LABEL,
         { .l = {label} },
-		p->lexer->line - 1,
+		line,
     };
     return node;
 }
 
 void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
-	if (parser_tteq(p, ".word")) {
+	if (parser_tteq(p, ".byte")) {
 		parser_advance(p, err);
 		if (err->is_err) return;
 
@@ -462,7 +463,67 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 			case TOK_HEXNUM:
 			case TOK_OCTNUM:
 			case TOK_DECNUM: ;
-				int n = parse_number(p, err);
+				long n = parse_number(p, err);
+				if (err->is_err) return;
+
+				if (d->len - d->cap < 1) {
+					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
+					d->cap += 1024;			
+				}
+
+				*(uint8_t*)(&d->data[d->len]) = n;
+				d->len += 1;
+				break;
+			case TOK_COMMA:
+				parser_advance(p, err);
+				if (err->is_err) return;
+				break;
+			default: 
+				return;	
+			}
+		}
+	} else if (parser_tteq(p, ".half")) {
+		parser_advance(p, err);
+		if (err->is_err) return;
+
+		while (1) {
+			switch (p->current.type) {
+			
+			case TOK_BINNUM:
+			case TOK_HEXNUM:
+			case TOK_OCTNUM:
+			case TOK_DECNUM: ;
+				long n = parse_number(p, err);
+				if (err->is_err) return;
+
+				if (d->len - d->cap < 2) {
+					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
+					d->cap += 1024;			
+				}
+
+				*(uint16_t*)(&d->data[d->len]) = n;
+				d->len += 2;
+				break;
+			case TOK_COMMA:
+				parser_advance(p, err);
+				if (err->is_err) return;
+				break;
+			default: 
+				return;	
+			}
+		}
+	} else if (parser_tteq(p, ".word")) {
+		parser_advance(p, err);
+		if (err->is_err) return;
+
+		while (1) {
+			switch (p->current.type) {
+			
+			case TOK_BINNUM:
+			case TOK_HEXNUM:
+			case TOK_OCTNUM:
+			case TOK_DECNUM: ;
+				long n = parse_number(p, err);
 				if (err->is_err) return;
 
 				if (d->len - d->cap < 4) {
@@ -472,6 +533,36 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 
 				*(uint32_t*)(&d->data[d->len]) = n;
 				d->len += 4;
+				break;
+			case TOK_COMMA:
+				parser_advance(p, err);
+				if (err->is_err) return;
+				break;
+			default: 
+				return;	
+			}
+		}
+	} else if (parser_tteq(p, ".dword")) {
+		parser_advance(p, err);
+		if (err->is_err) return;
+
+		while (1) {
+			switch (p->current.type) {
+			
+			case TOK_BINNUM:
+			case TOK_HEXNUM:
+			case TOK_OCTNUM:
+			case TOK_DECNUM: ;
+				long n = parse_number(p, err);
+				if (err->is_err) return;
+
+				if (d->len - d->cap < 8) {
+					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
+					d->cap += 1024;			
+				}
+
+				*(uint64_t*)(&d->data[d->len]) = n;
+				d->len += 8;
 				break;
 			case TOK_COMMA:
 				parser_advance(p, err);
