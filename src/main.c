@@ -1,32 +1,39 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifndef SIMULATOR_H
 #include "simulator.h"
 #endif
 
 int main(void) {
-    Simulator s = {0};
-        
-    sim_load(&s, "input.s");
-    for (int i = 0; i <= 31; i++) {
-        // Append a new line to registers in each loop iteration
-        s.regs[i] = 0;
+    Simulator s;
+    sim_init(&s);
+
+    while (1) {
+        char input[100] = "\0";
+        scanf("%s", input);
+
+        if (strcmp(input, "load") == 0) {
+            char filename[100] = "\0";
+            scanf("%s", filename);
+            sim_load(&s, filename); 
+        } else if (strcmp(input, "run") == 0) {
+            sim_run(&s);
+        } else if (strcmp(input, "regs") == 0) {
+            sim_regs(&s);
+        } else if (strcmp(input, "mem") == 0) {
+            int start, count;
+            scanf(" %d %d", &start, &count);
+            sim_mem(&s, start, count);
+        } else if (strcmp(input, "step") == 0) {
+            sim_step(&s);
+        } else if (strcmp(input, "exit") == 0) {
+            printf("Exited the simulator\n");
+            break;
+        }
+        printf("\n");
     }
 
-    //s.regs[2] = 10;
-    //s.regs[3] = 20;
-    char registers[600] = {0};
-    printf("hi\n");
-    sim_run_all(&s);
-    //printf("%llx\n", s.regs[1]);
-
-    regs(&s, registers);
-
-    printf("%s\n", registers);
-
-    char* string;
-    string = mem(&s, 0x10000, 40, string);
-    printf("%s\n", string);
-    free(string);
+    return 0;
 }

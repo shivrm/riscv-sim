@@ -38,6 +38,22 @@ char *read_file(FILE *f) {
 	}
 }
 
+void print_line(char *src, int line) {
+	// Moves to the starting line of the error
+	char *ptr = src;
+	for (int i = 1; i < line; i++) {
+		while ((*ptr != '\n') && (*ptr != '\0')) {
+			ptr++;
+		}	
+		ptr++;
+	}	
+	char *start = ptr;		
+	while (*ptr != '\n' && *ptr != '\0') ptr++;	
+	char *end = ptr;
+
+	printf("%.*s", (int)(end - start), start);
+}
+
 // Prints a parse error
 void print_parse_error(char *src, ParseErr *err) {	
 
@@ -50,7 +66,6 @@ void print_parse_error(char *src, ParseErr *err) {
 		ptr++;
 	}	
 	char *start = ptr;		
-	while (*ptr != '\n' && *ptr != '\0') ptr++;	
 	char *end = ptr;
 
 
@@ -91,7 +106,15 @@ void print_emit_error(char *src, EmitErr *err) {
 
 
 void sim_init(Simulator *s) {
-   // TODO 
+	s->pc = 0;
+	
+	for (int i = 0; i < 32; i++) {
+		s->regs[i] = 0;
+	}
+
+	for (int i = 0; i < MEM_SIZE; i++) {
+		s->mem[i] = 0;
+	} 
 }
 
 int sim_load(Simulator *s, char *file) {
@@ -143,7 +166,7 @@ int sim_load(Simulator *s, char *file) {
 	return 0;
 }
 
-void sim_run(Simulator *s) {
+void sim_run_one(Simulator *s) {
     // Read 32-bits from index `pc` of memory
     uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
 
@@ -437,55 +460,51 @@ void sim_run(Simulator *s) {
     s->pc += 4;
 }
 
-void regs(Simulator *s, char* registers){
-    int len = 0;  // Track the current length of the string in buffer
-    unsigned int register_size = 600;  // Full size of the registers string
-
+void sim_regs(Simulator *s) {
     for (int i = 0; i <= 31; i++) {
-        // Append a new line to registers in each loop iteration
-        len += snprintf(registers + len, register_size - len, "x%d = 0x%llx \n", i, s->regs[i]);
-        if (len >= register_size) {
-            printf("Overflow!\n");
-            break;
-        }
+        printf("x%d = 0x%lX \n", i, s->regs[i]);
     }
-
-	if (len < register_size){ // manually null-terminate, just in case
-		registers[len] = '\0';
-	}
-
 }
 
-char* mem(Simulator *s, int address, int count, char* string){
-	int len = 0;
-	unsigned int string_size = count*40;
-	string = (char*) malloc(string_size);
+void sim_mem(Simulator *s, int start, int count){
 
-	int current_address = address;
-	int final_address = address + (count-1);
-	while (current_address <= final_address){
-		len += snprintf(string + len, string_size - len, "Memory[0x%x] = 0x%x \n",
-						 current_address, s->mem[current_address]);
-		current_address += 1;
-        if (len >= string_size) {
-            printf("Overflow!\n");
-            break;
-        }
+	for (int i = 0; i < count; i++) {
+		int addr = start + i;
+		printf("Memory[0x%x] = 0x%X \n", addr, s->mem[addr]);
 	}
-	if (len < string_size){ // manually null-terminate, just in case
-		string[len] = '\0';
-	}
-
-	return string;
-
 }
 
-void sim_run_all(Simulator *s) { //run command
+int get_ins_line(Simulator *s, int n) {
+	ParseNode *p = s->nodes;
+	int i = 0;
+	while (i < n) {
+		if (p->type == LABEL) {p++; continue;}
+		i++;
+		p++;	
+	}
+	return (--p)->line;
+
+}
+void sim_step(Simulator *s) {
+	uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
+	if (!ins) {
+		printf("Nothing to step\n");
+		return;
+	};
+	
+	uint64_t pc = s->pc;
+	sim_run_one(s);
+	
+	printf("Executed: ");
+	print_line(s->src, get_ins_line(s, s->pc/4));
+	printf("; PC = 0x%lX\n", pc);
+}
+
+void sim_run(Simulator *s) {
     uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
 
 	while (ins) {
-		sim_run(s);
+		sim_step(s);
 		ins = *(uint32_t*)(&s->mem[s->pc]);
-		//printf("Done with instruction\n");
 	}
 } 
