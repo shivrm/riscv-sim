@@ -17,3 +17,5 @@ typedef struct Simulator {
 int sim_load(Simulator *s, char *file);
 void sim_run(Simulator *s);
 void sim_run_all(Simulator *s);
+void regs(Simulator *s, char* registers);
+char* mem(Simulator *s, int address, int count, char* string);

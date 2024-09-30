@@ -1,3 +1,4 @@
+
 CFLAGS= -O2
 CFILES=src/asm/lexer.c src/asm/parser.c src/asm/emitter.c src/simulator.c src/main.c
 OUT=./riscv_asm
@@ -8,3 +9,5 @@ riscv_asm: ${CFILES}
 
 test: riscv_asm
 	./test.sh
+
+#PHONY: riscv_asm test
