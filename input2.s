@@ -1,25 +1,25 @@
 .data
-.dword 5,66,99, 12, 18, 3, 4, 0, 5, 12, 21
+.word 5,66,99, 12, 18, 3, 4, 0, 5, 12, 21
 
 .text
-lui x3, 0x10000
-lui x4, 0x10000
+lui x3, 0x10
+lui x4, 0x10
 addi x4, x4, 512
 
-ld x5, 0(x3)
-addi x6, x3, 8
+lw x5, 0(x3)
+addi x6, x3, 4
 add x7, x0, x0
 addi x13, x0, 1 
 
 OVERALL_LOOP:
 beq x7, x5, Exit
-slli x8, x7, 4 
+slli x8, x7, 3
 slli x15, x7, 3
 add x16, x6, x8 
-addi x17, x16, 8 
+addi x17, x16, 4
 add x18, x4, x15 
-ld x9, 0(x16)
-ld x10, 0(x17) 
+lw x9, 0(x16)
+lw x10, 0(x17) 
 addi x7, x7, 1
 
 GCD_LOOP:

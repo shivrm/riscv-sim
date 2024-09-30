@@ -8,7 +8,7 @@
 int main(void) {
     Simulator s = {0};
         
-    sim_load(&s, "input.s");
+    sim_load(&s, "input2.s");
     for (int i = 0; i <= 31; i++) {
         // Append a new line to registers in each loop iteration
         s.regs[i] = 0;
@@ -25,7 +25,7 @@ int main(void) {
     printf("%s\n", registers);
 
     char* string;
-    string = mem(&s, 0x10000, 4, string);
+    string = mem(&s, 0x10200, 40, string);
     printf("%s\n", string);
     free(string);
 }
