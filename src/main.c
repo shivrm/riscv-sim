@@ -17,6 +17,7 @@ int main(void) {
         if (strcmp(input, "load") == 0) {
             char filename[100] = "\0";
             scanf("%s", filename);
+            sim_init(&s);
             sim_load(&s, filename); 
         } else if (strcmp(input, "run") == 0) {
             sim_run(&s);
@@ -24,10 +25,21 @@ int main(void) {
             sim_regs(&s);
         } else if (strcmp(input, "mem") == 0) {
             int start, count;
-            scanf(" %d %d", &start, &count);
+            scanf(" %x %d", &start, &count);
             sim_mem(&s, start, count);
         } else if (strcmp(input, "step") == 0) {
             sim_step(&s);
+        } else if (strcmp(input, "break") == 0) {
+            int line;
+            scanf(" %d", &line);
+            sim_add_breakpoint(&s, line);
+        } else if (strcmp(input, "del") == 0) {
+            scanf("%s", input);;
+            if (strcmp(input, "break") != 0) continue;
+            
+            int line;
+            scanf(" %d", &line);
+            sim_remove_breakpoint(&s, line);  
         } else if (strcmp(input, "exit") == 0) {
             printf("Exited the simulator\n");
             break;

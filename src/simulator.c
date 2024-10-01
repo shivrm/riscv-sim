@@ -107,7 +107,13 @@ void print_emit_error(char *src, EmitErr *err) {
 
 void sim_init(Simulator *s) {
 	s->pc = 0;
-	
+
+	s->breaks = malloc(sizeof(BreakPointVec));
+	s->breaks->len = 0;
+	s->breaks->cap = 0;
+	s->breaks->data = NULL;
+
+
 	for (int i = 0; i < 32; i++) {
 		s->regs[i] = 0;
 	}
@@ -506,5 +512,32 @@ void sim_run(Simulator *s) {
 	while (ins) {
 		sim_step(s);
 		ins = *(uint32_t*)(&s->mem[s->pc]);
+
+
+		int line = get_ins_line(s, s->pc/4+1);
+		for (int i = 0; i < s->breaks->len; i++) {
+			if (s->breaks->data[i] == line) {
+				printf("Execution stopped at breakpoint\n");
+				return;
+			}
+		}
+
 	}
 } 
+
+void sim_add_breakpoint(Simulator *s, int line) {
+	if (s->breaks->len >= s->breaks->cap) {
+		s->breaks->data = realloc(s->breaks->data, (s->breaks->cap + 1024) * sizeof(int));
+		s->breaks->cap += 1024;
+	}
+	s->breaks->data[s->breaks->len++] = line;
+}
+
+void sim_remove_breakpoint(Simulator *s, int line) {
+	int idx = 0;
+	for (idx = 0; idx < s->breaks->len; idx++) {
+		if (s->breaks->data[idx] == line) break;
+	}
+
+	s->breaks->data[idx] = s->breaks->data[--s->breaks->len];
+}
