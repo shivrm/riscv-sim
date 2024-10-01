@@ -4,7 +4,17 @@
 #include "asm/emitter.h"
 #endif
 
-#define MEM_SIZE 0x20000
+#define MEM_SIZE 0x50001
+
+typedef struct StackEntry {
+    char *label;
+    int line;
+} StackEntry;
+
+typedef struct StackVec {
+    size_t len, cap;
+    StackEntry *data;
+} StackVec;
 
 typedef struct BreakPointVec {
     size_t len, cap;
@@ -18,6 +28,7 @@ typedef struct Simulator {
     ParseNode *nodes;
     LabelVec *labels;
     BreakPointVec *breaks;
+    StackVec *stack;
 } Simulator;
 
 void sim_init(Simulator *s);
@@ -29,3 +40,4 @@ void sim_regs(Simulator *s);
 void sim_mem(Simulator *s, int start, int count);
 void sim_add_breakpoint(Simulator *s, int line);
 void sim_remove_breakpoint(Simulator *s, int line);
+void sim_show_stack(Simulator *s);

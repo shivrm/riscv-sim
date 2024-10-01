@@ -9,10 +9,10 @@
 
 // Returns the address that a label points to
 // Throws an error if label is not found.
-int get_label_pos(LabelVec labels, Label label, EmitErr *err) {
-    for (int i = 0; i < labels.len; i++) {
-        if (strcmp(labels.data[i].lbl_name, label.name) == 0) {
-            return labels.data[i].offset;
+int get_label_pos(LabelVec *labels, Label label, EmitErr *err) {
+    for (int i = 0; i < labels->len; i++) {
+        if (strcmp(labels->data[i].lbl_name, label.name) == 0) {
+            return labels->data[i].offset;
         }
     }
 
@@ -23,7 +23,7 @@ int get_label_pos(LabelVec labels, Label label, EmitErr *err) {
 }
 
 // Returns the hex code corresponding to an instruction
-int encode_ins(ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
+int encode_ins(ParseNode *p, LabelVec *labels, int pc, EmitErr *err) {
     int hex, imm;
     switch (p->type) {
         case R_INS:
@@ -208,7 +208,7 @@ int encode_ins(ParseNode *p, LabelVec labels, int pc, EmitErr *err) {
 }
 
 // Enumerates 
-void emit_all(uint8_t *buf, ParseNode p[], int num_nodes, LabelVec labels, EmitErr *err) {
+void emit_all(uint8_t *buf, ParseNode p[], int num_nodes, LabelVec *labels, EmitErr *err) {
     // Emit instructions
     int pc = 0;
     for (int i = 0; i < num_nodes; i++) {
@@ -222,44 +222,39 @@ void emit_all(uint8_t *buf, ParseNode p[], int num_nodes, LabelVec labels, EmitE
     }
 }
 
-LabelVec find_labels(ParseNode p[], int num_nodes, EmitErr *err) {
-    // Enumerates labels
-    LabelVec labels = {0, 0, NULL}; 
-    labels.data = malloc(LE_CHUNK_SIZE * sizeof(LabelEntry));
-    labels.cap = LE_CHUNK_SIZE;
-    
+void find_labels(ParseNode p[], int num_nodes, LabelVec *labels, EmitErr *err) { 
     int offset = 0;
     for (int i = 0; i < num_nodes; i++) {
         // Resize label vec if out of space
-        if (labels.cap == labels.len) {
-            labels.data = realloc(labels.data, (labels.cap + LE_CHUNK_SIZE) * sizeof(LabelEntry));
-            labels.cap += LE_CHUNK_SIZE;
+        if (labels->cap == labels->len) {
+            labels->data = realloc(labels->data, (labels->cap + LE_CHUNK_SIZE) * sizeof(LabelEntry));
+            labels->cap += LE_CHUNK_SIZE;
         }
 
         if (p[i].type == LABEL) {
-            for (int j = 0; j < labels.len; j++) {
-                if (strcmp(labels.data[j].lbl_name, p[i].data.l.name) == 0) {
+            for (int j = 0; j < labels->len; j++) {
+                if (strcmp(labels->data[j].lbl_name, p[i].data.l.name) == 0) {
                     err->is_err = 1;
                     err->msg = "Duplicate definition of label";
                     err->line = p[i].line;
-                    return labels;
+                    return;
                 }
             }
 
-            labels.data[labels.len].lbl_name = p[i].data.l.name;
-            labels.data[labels.len++].offset = offset;
+            labels->data[labels->len].lbl_name = p[i].data.l.name;
+            labels->data[labels->len++].offset = offset;
         } else {
             offset += 4;
         }
     }
 
     // Check for label at end of file, not followed by an instruction
-    if (labels.data[labels.len-1].offset == offset) {
+    if (labels->data[labels->len-1].offset == offset) {
         err->is_err = 1;
         err->msg = "Label without instruction";
         err->line = p[num_nodes-1].line;
-        return labels;
+        return;
     }
 
-    return labels;
+    return;
 }

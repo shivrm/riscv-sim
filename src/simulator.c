@@ -10,6 +10,9 @@
 #define PN_CHUNK_SIZE 4096
 #define DATA_SEGMENT_START 0x10000 
 
+void sim_stack_push(Simulator *s, char *label, int line);
+void sim_stack_pop(Simulator *s);
+
 // Reads an entire file into a buffer
 char *read_file(FILE *f) {
 	size_t len = 0, cap = 0;
@@ -113,6 +116,17 @@ void sim_init(Simulator *s) {
 	s->breaks->cap = 0;
 	s->breaks->data = NULL;
 
+	s->stack = malloc(sizeof(StackVec));
+	s->stack->len = 0;
+	s->stack->cap = 0;
+	s->stack->data = NULL;
+
+	s->labels = malloc(sizeof(LabelVec));
+	s->labels->len = 0;
+	s->labels->cap = 0;
+	s->labels->data = NULL;
+
+	sim_stack_push(s, "main", 0);
 
 	for (int i = 0; i < 32; i++) {
 		s->regs[i] = 0;
@@ -149,13 +163,13 @@ int sim_load(Simulator *s, char *file) {
 	}
 
 	EmitErr err2 = {0, "", 0};
-    LabelVec labels = find_labels(pn.data, pn.len, &err2);
+    find_labels(pn.data, pn.len, s->labels, &err2);
 	if (err2.is_err) {
 		print_emit_error(src, &err2);
 		return -1;
 	}
 
-	emit_all(s->mem, pn.data, pn.len, labels, &err2);
+	emit_all(s->mem, pn.data, pn.len, s->labels, &err2);
 	if (err2.is_err) {
 		print_emit_error(src, &err2);
 		return -1;
@@ -440,9 +454,23 @@ void sim_run_one(Simulator *s) {
             	(((ins >>20) & 0b1) << 10) + //11
             	((ins>>21) & 0b1111111111); // 10:1
 			imm = imm <<1; // note that imm is a signed immediate
+
+			// Sign extension
+			imm = imm | 0xffe00000 * (imm >> 20);
+
 			int64_t rd = s->pc + 4;
-			s->pc += imm;
+			s->pc += imm - 4;
 			s->regs[rd_idx] = rd;
+
+			char *label;
+			for (int i = 0; i < s->labels->len; i++) {
+				if (s->labels->data[i].offset == s->pc+4) {
+					label = s->labels->data[i].lbl_name;	
+				}
+			}
+
+			sim_stack_push(s, label, 0);
+
 			break;
 		}
 		case 0b1100111:{ //jalr
@@ -454,15 +482,21 @@ void sim_run_one(Simulator *s) {
             int64_t rs1 = s->regs[rs1_idx], rd;
 
 			rd = s->pc + 4;
-			s->pc = rs1 + imm; // return address + immediate;
+			s->pc = rs1 + imm - 4; // return address + immediate;
 
 			s->regs[rd_idx] = rd;
+			
+			sim_stack_pop(s);
+			
 			break;
+
 		}
 
 
     }
-
+	
+	// Force x0 to 0
+	s->regs[0] = 0;
     s->pc += 4;
 }
 
@@ -483,7 +517,7 @@ void sim_mem(Simulator *s, int start, int count){
 int get_ins_line(Simulator *s, int n) {
 	ParseNode *p = s->nodes;
 	int i = 0;
-	while (i < n) {
+	while (i <= n) {
 		if (p->type == LABEL) {p++; continue;}
 		i++;
 		p++;	
@@ -499,11 +533,15 @@ void sim_step(Simulator *s) {
 	};
 	
 	uint64_t pc = s->pc;
+	int len = s->stack->len;
 	sim_run_one(s);
 	
 	printf("Executed: ");
-	print_line(s->src, get_ins_line(s, s->pc/4));
+	int line = get_ins_line(s, pc/4);
+	print_line(s->src, line);
 	printf("; PC = 0x%lX\n", pc);
+
+	s->stack->data[len-1].line = line;
 }
 
 void sim_run(Simulator *s) {
@@ -540,4 +578,25 @@ void sim_remove_breakpoint(Simulator *s, int line) {
 	}
 
 	s->breaks->data[idx] = s->breaks->data[--s->breaks->len];
+}
+
+void sim_stack_push(Simulator *s, char *label, int line) {
+	if (s->stack->len >= s->stack->cap) {
+		s->stack->data = realloc(s->stack->data, (s->stack->cap + 1024) * sizeof(StackEntry));
+		s->stack->cap += 1024;
+	}
+
+	s->stack->data[s->stack->len].label = label;	
+	s->stack->data[s->stack->len].line = line;
+	s->stack->len++;
+}
+
+void sim_stack_pop(Simulator *s) {
+	s->stack->len--;
+}
+
+void sim_show_stack(Simulator *s) {
+	for (int i = 0; i < s->stack->len; i++) {
+		printf("%s:%d\n", s->stack->data[i].label, s->stack->data[i].line);
+	}	
 }
