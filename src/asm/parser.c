@@ -321,6 +321,7 @@ JIns parse_j_ins(Parser *p, JInsTableEntry *entry, ParseErr *err) {
     return ins;
 }
 
+// Parses a single instruction/label
 ParseNode parse_text_element(Parser *p, ParseErr *err) {	
 	ParseNode sentinel = {0}; // Zero object to be returned in case of error
 	int line = p->lexer->line;
@@ -451,6 +452,7 @@ ParseNode parse_text_element(Parser *p, ParseErr *err) {
     return node;
 }
 
+// Parses one data directive and the values after it
 void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 	if (parser_tteq(p, ".byte")) {
 		parser_advance(p, err);
@@ -466,6 +468,7 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 				long n = parse_number(p, err);
 				if (err->is_err) return;
 
+				// If there is no space, grow the array
 				if (d->len - d->cap < 1) {
 					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
 					d->cap += 1024;			
@@ -496,6 +499,7 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 				long n = parse_number(p, err);
 				if (err->is_err) return;
 
+				// If there is no space, grow the array
 				if (d->len - d->cap < 2) {
 					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
 					d->cap += 1024;			
@@ -526,6 +530,7 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 				long n = parse_number(p, err);
 				if (err->is_err) return;
 
+				// If there is no space, grow the array
 				if (d->len - d->cap < 4) {
 					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
 					d->cap += 1024;			
@@ -556,6 +561,7 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 				long n = parse_number(p, err);
 				if (err->is_err) return;
 
+				// If there is no space, grow the array
 				if (d->len - d->cap < 8) {
 					d->data = realloc(d->data, (d->cap + 1024) * sizeof(uint8_t));
 					d->cap += 1024;			
@@ -582,7 +588,9 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 	}
 }
 
+// Parses a single data element or text element
 void parse_one(Parser *p, ParseNodeVec *pn, DataVec *d, ParseErr *err) {
+	// If we have a .text or .data directive, set parser section
 	if (p->current.type == TOK_DIRECTIVE) {
 		if (parser_tteq(p, ".data")) {
 			parser_advance(p, err);
@@ -611,11 +619,14 @@ void parse_one(Parser *p, ParseNodeVec *pn, DataVec *d, ParseErr *err) {
 	}
 }
 
+// Parse a file till the end
 void parse_all(Parser *p, ParseNodeVec *pn, DataVec *d, ParseErr *err) {
 	while (1) {
 		parse_one(p, pn, d, err);
 		if (err->is_err) {
+			// This error is raised when we reach the end of file
 			if (strcmp(err->msg, "EOF while parsing") == 0) {
+				// Ignore the sentinel node inserted at the end
 				pn->len--;
 				err->is_err = 0;
 			}

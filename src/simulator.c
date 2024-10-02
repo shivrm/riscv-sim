@@ -434,7 +434,7 @@ void sim_run_one(Simulator *s) {
 			long int imm = (ins>>12);
 
 
-			int64_t rd = ((int64_t)(imm<<44))>>32; // we have to do msb extend
+			int64_t rd = ((int64_t)imm << 44) >> 32; // we have to do msb extend
 			s->regs[rd_idx] = rd;
 			break;
 		}
@@ -443,7 +443,7 @@ void sim_run_one(Simulator *s) {
 				imm = (ins>>12);
 
 
-			int64_t rd = ((int64_t)(imm<<44))>>32 + s->pc; // we have to do msb extend
+			int64_t rd = (((int64_t)imm << 44) >> 32) + s->pc; // we have to do msb extend
 			s->regs[rd_idx] = rd;
 			break;
 		}
@@ -498,12 +498,14 @@ void sim_run_one(Simulator *s) {
     s->pc += 4;
 }
 
+// Prints the values of rhe registers
 void sim_regs(Simulator *s) {
     for (int i = 0; i <= 31; i++) {
         printf("x%d = 0x%lX \n", i, s->regs[i]);
     }
 }
 
+// Prints <count> bytes of memory, starting at address <start>
 void sim_mem(Simulator *s, int start, int count){
 
 	for (int i = 0; i < count; i++) {
@@ -512,6 +514,7 @@ void sim_mem(Simulator *s, int start, int count){
 	}
 }
 
+// Get the line number of the nth instruction
 int get_ins_line(Simulator *s, int n) {
 	ParseNode *p = s->nodes;
 	int i = 0;
@@ -523,6 +526,8 @@ int get_ins_line(Simulator *s, int n) {
 	return (--p)->line;
 
 }
+
+// Executes one instruction
 void sim_step(Simulator *s) {
 	uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
 	if (!ins) {
@@ -539,14 +544,17 @@ void sim_step(Simulator *s) {
 	print_line(s->src, line);
 	printf("; PC = 0x%lX\n", pc);
 
+	// Update call stack
 	s->stack->data[len-1].line = line;
 
+	// Remove `main` from stack at end of code
 	ins = *(uint32_t*)(&s->mem[s->pc]);
 	if (!ins) {
 		s->stack->len--;
 	}
 }
 
+// Executes instructions intil EOF or until breakpoint
 void sim_run(Simulator *s) {
     uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
 
@@ -554,7 +562,7 @@ void sim_run(Simulator *s) {
 		sim_step(s);
 		ins = *(uint32_t*)(&s->mem[s->pc]);
 
-
+		// Check if current line is a breakpoint
 		int line = get_ins_line(s, s->pc/4+1);
 		for (int i = 0; i < s->breaks->len; i++) {
 			if (s->breaks->data[i] == line) {
@@ -564,13 +572,16 @@ void sim_run(Simulator *s) {
 		}
 	}
 	
+	// Remove `main` from stack at end of code
 	ins = *(uint32_t*)(&s->mem[s->pc]);
 	if (!ins) {
 		s->stack->len--;
 	}
 } 
 
+// Adds a breakpoint
 void sim_add_breakpoint(Simulator *s, int line) {
+	// If there is no space, then grow the breakpoint array
 	if (s->breaks->len >= s->breaks->cap) {
 		s->breaks->data = realloc(s->breaks->data, (s->breaks->cap + 1024) * sizeof(int));
 		s->breaks->cap += 1024;
@@ -579,6 +590,7 @@ void sim_add_breakpoint(Simulator *s, int line) {
 	printf("Breakpoint set at line %d\n", line);
 }
 
+// Removes a breakpoint
 void sim_remove_breakpoint(Simulator *s, int line) {
 	int idx = 0, found = 0;;
 	for (idx = 0; idx < s->breaks->len; idx++) {
@@ -595,6 +607,7 @@ void sim_remove_breakpoint(Simulator *s, int line) {
 	}
 }
 
+// Pushes a label and line onto the stack
 void sim_stack_push(Simulator *s, char *label, int line) {
 	if (s->stack->len >= s->stack->cap) {
 		s->stack->data = realloc(s->stack->data, (s->stack->cap + 1024) * sizeof(StackEntry));
@@ -606,10 +619,12 @@ void sim_stack_push(Simulator *s, char *label, int line) {
 	s->stack->len++;
 }
 
+// Pops one entry from the top of the stack
 void sim_stack_pop(Simulator *s) {
 	s->stack->len--;
 }
 
+// Shows the stack
 void sim_show_stack(Simulator *s) {
 	if (!s->stack->len) {
 		printf("Empty Call Stack: Execution complete\n");

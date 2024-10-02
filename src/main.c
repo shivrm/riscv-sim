@@ -35,8 +35,7 @@ int main(void) {
             sim_add_breakpoint(&s, line);
         } else if (strcmp(input, "del") == 0) {
             scanf("%s", input);;
-            if (strcmp(input, "break") != 0) continue;
-            
+            if (strcmp(input, "break") != 0) continue; 
             int line;
             scanf(" %d", &line);
             sim_remove_breakpoint(&s, line);
