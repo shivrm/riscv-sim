@@ -517,7 +517,7 @@ void sim_mem(Simulator *s, int start, int count){
 int get_ins_line(Simulator *s, int n) {
 	ParseNode *p = s->nodes;
 	int i = 0;
-	while (i <= n) {
+	while (i < n) {
 		if (p->type == LABEL) {p++; continue;}
 		i++;
 		p++;	
@@ -537,11 +537,16 @@ void sim_step(Simulator *s) {
 	sim_run_one(s);
 	
 	printf("Executed: ");
-	int line = get_ins_line(s, pc/4);
+	int line = get_ins_line(s, pc/4+1);
 	print_line(s->src, line);
 	printf("; PC = 0x%lX\n", pc);
 
 	s->stack->data[len-1].line = line;
+
+	ins = *(uint32_t*)(&s->mem[s->pc]);
+	if (!ins) {
+		s->stack->len--;
+	}
 }
 
 void sim_run(Simulator *s) {
@@ -559,7 +564,11 @@ void sim_run(Simulator *s) {
 				return;
 			}
 		}
-
+	}
+	
+	ins = *(uint32_t*)(&s->mem[s->pc]);
+	if (!ins) {
+		s->stack->len--;
 	}
 } 
 
@@ -569,15 +578,23 @@ void sim_add_breakpoint(Simulator *s, int line) {
 		s->breaks->cap += 1024;
 	}
 	s->breaks->data[s->breaks->len++] = line;
+	printf("Breakpoint set at line %d\n", line);
 }
 
 void sim_remove_breakpoint(Simulator *s, int line) {
-	int idx = 0;
+	int idx = 0, found = 0;;
 	for (idx = 0; idx < s->breaks->len; idx++) {
-		if (s->breaks->data[idx] == line) break;
+		if (s->breaks->data[idx] == line) {
+			found = 1;
+			break;
+		}
 	}
-
-	s->breaks->data[idx] = s->breaks->data[--s->breaks->len];
+	if (found) {
+		s->breaks->data[idx] = s->breaks->data[--s->breaks->len];
+		printf("Deleted breakpoint at line %d\n", line);
+	} else {
+		printf("No breakpoint at line %d\n", line);
+	}
 }
 
 void sim_stack_push(Simulator *s, char *label, int line) {
@@ -596,6 +613,12 @@ void sim_stack_pop(Simulator *s) {
 }
 
 void sim_show_stack(Simulator *s) {
+	if (!s->stack->len) {
+		printf("Empty Call Stack: Execution complete\n");
+	} else {
+		printf("Call Stack:\n");
+	}
+
 	for (int i = 0; i < s->stack->len; i++) {
 		printf("%s:%d\n", s->stack->data[i].label, s->stack->data[i].line);
 	}	

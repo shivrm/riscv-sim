@@ -6,7 +6,7 @@
 
 .text
 lui x3, 0x10
-lui x2, 0x30
+lui x2, 0x50
 lw x10, 0(x3)
 
 jal x1, Sum

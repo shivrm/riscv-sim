@@ -39,7 +39,7 @@ int main(void) {
             
             int line;
             scanf(" %d", &line);
-            sim_remove_breakpoint(&s, line);  
+            sim_remove_breakpoint(&s, line);
         } else if (strcmp(input, "show-stack") == 0) {
             sim_show_stack(&s);
         } else if (strcmp(input, "exit") == 0) {
