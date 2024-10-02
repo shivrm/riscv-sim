@@ -69,11 +69,14 @@ void print_parse_error(char *src, ParseErr *err) {
 		ptr++;
 	}	
 	char *start = ptr;		
+	while (*ptr != '\n' && *ptr != '\0') ptr++;	
 	char *end = ptr;
 
 
 	printf("Error on line %d: %s\n", err->line, err->msg);
-	
+
+
+
 	// Add arrows underneath to point to error position
 	printf("%.*s\n", (int)(end - start), start);
 	for (int i = 1; i < err->scol; i++) {
@@ -222,11 +225,11 @@ void sim_run_one(Simulator *s) {
 					rd = rs1 << rs2;
 					break;
 				case 0x5: 
-					switch(funct7){
+					switch(funct7) {
                     	case 0x20: rd = rs1 >> rs2; break; // sra                   
                     	case 0x00: //srl
 							if (rs1>>63 == -1){ // if the first bit is -1
-								rd = (int64_t) ((u_int64_t)(rs1) >> (u_int64_t)(rs2));
+								rd = (int64_t) ((uint64_t)(rs1) >> (uint64_t)(rs2));
 								break;
 							}
 							else {	
@@ -238,7 +241,7 @@ void sim_run_one(Simulator *s) {
 					rd = (rs1 < rs2)?1:0;
 					break;
 				case 0x3: // sltu
-					rd = ((int64_t)((u_int64_t)rs1 < (u_int64_t)rs2))?1:0;
+					rd = ((int64_t)((uint64_t)rs1 < (uint64_t)rs2))?1:0;
 					break;
 
             }
@@ -248,7 +251,6 @@ void sim_run_one(Simulator *s) {
 		}
 
 		case 0b0010011:{ // I format arithmetic instructions
-			ins = (int32_t) ins;
             int rd_idx = (ins >> 7) & 0b11111,
                 funct3 = (ins >> 12) & 0b111,
                 rs1_idx = (ins >> 15) & 0b11111,
@@ -270,7 +272,6 @@ void sim_run_one(Simulator *s) {
 					rd = rs1 | imm;
 					break;
 				case 0x7: // andi
-
 					rd = rs1 & imm;
 					break;
 				case 0x1:{ // slli
@@ -282,23 +283,23 @@ void sim_run_one(Simulator *s) {
 					int imm_first6 = imm>>6;
 					int imm_second6 = imm & 0b000000111111;
 					switch(imm_first6){
-                    	case 0x10: rd = rs1 >> imm_second6; break; // srai                  
+                    	case 0x10: rd = rs1 >> imm_second6; break; // srai             
                     	case 0x00: //srli
 							if (rs1>>63 == -1){ // if the leading digit is 1
-								rd = (int64_t) ((u_int64_t)(rs1) >> imm_second6);
+								rd = (uint64_t) ((int64_t)(rs1) >> imm_second6);
 								break;
-							}
-							else {	// if the leading digit is 0
+							} else {	// if the leading digit is 0
 								rd = rs1 >> imm_second6; 
 								break;
 							}
 					}
+					break;
 				}					
 				case 0x2: // slti
 					rd = (rs1 < imm)?1:0; // rs1 and imm are signed integers by default
 					break;
 				case 0x3: // sltiu
-					rd = ((u_int64_t)rs1 < imm)?1:0;
+					rd = ((uint64_t)rs1 < (uint32_t)imm)?1:0;
 					break;
 
             }
@@ -319,7 +320,7 @@ void sim_run_one(Simulator *s) {
             int64_t rs1 = s->regs[rs1_idx], rd;
 			int64_t address = rs1 + imm;
 			int64_t mem_value = *(int64_t*)(&s->mem[address]); // take out the entire 64 bit value
-			u_int64_t unsigned_mem_value = (u_int64_t) mem_value;
+			uint64_t unsigned_mem_value = (uint64_t) mem_value;
 
             switch(funct3) {
                 case 0x0:{ //lb
@@ -341,17 +342,17 @@ void sim_run_one(Simulator *s) {
 					rd = mem_value;
 					break;
 				case 0x4:{ // lbu
-					u_int8_t eight_bit_num = (unsigned_mem_value << 56) >> 56;
+					uint8_t eight_bit_num = (unsigned_mem_value << 56) >> 56;
 					rd = (int64_t) eight_bit_num;       
                     break;
 				}
 				case 0x5: { // lhu
-					u_int16_t sixteen_bit_num = (unsigned_mem_value << 48) >> 48;
+					uint16_t sixteen_bit_num = (unsigned_mem_value << 48) >> 48;
 					rd = (int64_t) sixteen_bit_num;       
                     break;
 				}					
 				case 0x6:{ // lwu
-                    u_int32_t thirtytwo_bit_num = (unsigned_mem_value << 32) >> 32; 
+                    uint32_t thirtytwo_bit_num = (unsigned_mem_value << 32) >> 32; 
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
 				}
@@ -372,18 +373,18 @@ void sim_run_one(Simulator *s) {
             
             switch(funct3) {
                 case 0x0:{ //sb
-					*(u_int8_t*)(&s->mem[address]) = (rs2 << 56)>>56; // i think this works just fine without the pointer typecasting
+					*(uint8_t*)(&s->mem[address]) = (rs2 << 56)>>56; // i think this works just fine without the pointer typecasting
                     break;
 				}
                 case 0x1:{ // sh
-					*(u_int16_t*)(&s->mem[address]) = (rs2 << 48)>>48;
+					*(uint16_t*)(&s->mem[address]) = (rs2 << 48)>>48;
                     break;
 				}
 				case 0x2: // sw
-					*(u_int32_t*)(&s->mem[address]) = (rs2 << 32)>>32;
+					*(uint32_t*)(&s->mem[address]) = (rs2 << 32)>>32;
                     break;
 				case 0x3: // sd
-					*(u_int64_t*)(&s->mem[address]) = rs2 ;
+					*(uint64_t*)(&s->mem[address]) = rs2 ;
 					break;
 			}
             break;
@@ -419,10 +420,10 @@ void sim_run_one(Simulator *s) {
 					if (rs1 >= rs2) s->pc += imm-4;
 					break;
 				case 0x6: // bltu
-					if ((u_int64_t)rs1 < (u_int64_t)rs2) s->pc += imm-4;
+					if ((uint64_t)rs1 < (uint64_t)rs2) s->pc += imm-4;
 					break;
 				case 0x7: // bgeu
-					if ((u_int64_t)rs1 >= (u_int64_t)rs2) s->pc += imm-4;
+					if ((uint64_t)rs1 >= (uint64_t)rs2) s->pc += imm-4;
 					break;
 			}
             break;
@@ -442,7 +443,7 @@ void sim_run_one(Simulator *s) {
 				imm = (ins>>12);
 
 
-			int64_t rd = (imm<<12) + s->pc; // we don't have to do msb extend?
+			int64_t rd = ((int64_t)(imm<<44))>>32 + s->pc; // we have to do msb extend
 			s->regs[rd_idx] = rd;
 			break;
 		}
@@ -489,10 +490,7 @@ void sim_run_one(Simulator *s) {
 			sim_stack_pop(s);
 			
 			break;
-
 		}
-
-
     }
 	
 	// Force x0 to 0

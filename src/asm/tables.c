@@ -54,6 +54,7 @@ IInsTableEntry i_ins_table_2[] = {
     {"ld", 0b0000011, 0x3},
     {"lbu", 0b0000011, 0x4},
     {"lhu", 0b0000011, 0x5},
+    {"lwu", 0b0000011, 0x6},
     {"jalr", 0b1100111, 0x0}
 };
 
