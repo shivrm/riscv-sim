@@ -7,7 +7,4 @@ CC=clang
 riscv_asm: ${CFILES}
 	$(CC) ${CFLAGS} ${CFILES} -o ${OUT}
 
-test: riscv_asm
-	./test.sh
-
-#PHONY: riscv_asm test
+#PHONY: riscv_asm

@@ -50,9 +50,23 @@ void print_line(char *src, int line) {
 		}	
 		ptr++;
 	}	
-	char *start = ptr;		
-	while (*ptr != '\n' && *ptr != '\0') ptr++;	
+
+	char *start = ptr;
+
+	// Move until end of line. If colon detected, then start at the
+	// character after colon
+	while (*ptr != '\n' && *ptr != '\0') {
+		if (*ptr == ':') {
+			start = ptr + 1;
+		}
+		ptr++;
+	}
+
 	char *end = ptr;
+
+	// Trim leading whitespace
+	while ((*start == ' ') || (*start == '\t')) start++;
+
 
 	printf("%.*s", (int)(end - start), start);
 }
@@ -570,13 +584,7 @@ void sim_run(Simulator *s) {
 				return;
 			}
 		}
-	}
-	
-	// Remove `main` from stack at end of code
-	ins = *(uint32_t*)(&s->mem[s->pc]);
-	if (!ins) {
-		s->stack->len--;
-	}
+	}	
 } 
 
 // Adds a breakpoint

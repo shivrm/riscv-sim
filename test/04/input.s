@@ -1,71 +1,26 @@
-
-;The following line initializes register x3 with 0x10000000 
-;so that you can use x3 for referencing various memory locations. 
-lui x3, 0x10000
-;your code starts here
-
-sub x10, x0, x0    ; Initialize 10 to zero
-
-; Adding the first 10 numbers
-; 1
-ld x9, 0(x3)        ; Load the first number into x9
-add x10, x10, x9    ; Add it to x10
-
-; 2 
-ld x9, 8(x3)
-add x10, x10, x9
-
-; 3
-ld x9, 16(x3)
-add x10, x10, x9
-
-; 4
-ld x9, 24(x3)
-add x10, x10, x9
-
-; 5
-ld x9, 32(x3)
-add x10, x10, x9
-
-; 6
-ld x9, 40(x3)
-add x10, x10, x9
-
-; 7
-ld x9, 48(x3)
-add x10, x10, x9
-
-; 8
-ld x9, 56(x3)
-add x10, x10, x9
-
-; 9
-ld x9, 64(x3)
-add x10, x10, x9
-
-; 10
-ld x9, 72(x3)
-add x10, x10, x9
-
-; Subtracting the next 5 numbers
-; 1
-ld x9, 80(x3)
-sub x10, x10, x9
-
-; 2
-ld x9, 88(x3)
-sub x10, x10, x9
-
-; 3
-ld x9, 96(x3)
-sub x10, x10, x9
-
-; 4
-ld x9, 104(x3)
-sub x10, x10, x9
-
-; 5
-ld x9, 112(x3)
-sub x10, x10, x9
-
-;The final result should be in register x10
+main: addi x10, x0, 2
+      lui sp, 0x50
+      jal x1, fact
+      beq x0, x0, exit
+fact: addi sp, sp, -16
+ 	  sd x1, 8(sp)
+ 	  sd x10, 0(sp)
+ 	  addi x5, x10, -1
+ 	  blt x0, x5, L1
+ 	  addi x10, x0, 1
+ 	  addi sp, sp, 16
+ 	  jalr x0, 0(x1)
+L1:   addi x10, x10, -1
+ 	  jal x1, fact
+ 	  addi x6, x10, 0
+ 	  ld x10, 0(sp)
+ 	  ld x1, 8(sp)
+ 	  addi sp, sp, 16
+        addi x20, x0, 0
+        addi x8, x0, 0
+mul: add x8, x8, x6
+     addi x20, x20, 1
+     bne x20, x10, mul
+     add x10, x8, x0
+     jalr x0, 0(x1)
+exit: add x0, x0, x0

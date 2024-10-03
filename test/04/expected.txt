@@ -1,0 +1,73 @@
+load test/04/input.s
+
+break 12
+Breakpoint set at line 12
+
+break 14
+Breakpoint set at line 14
+
+show-stack
+Call Stack:
+main:0
+
+run
+Executed: addi x10, x0, 2; PC = 0x0
+Executed: lui sp, 0x50; PC = 0x4
+Executed: jal x1, fact; PC = 0x8
+Executed: addi sp, sp, -16; PC = 0x10
+Executed: sd x1, 8(sp); PC = 0x14
+Executed: sd x10, 0(sp); PC = 0x18
+Executed: addi x5, x10, -1; PC = 0x1C
+Executed: blt x0, x5, L1; PC = 0x20
+Executed: addi x10, x10, -1; PC = 0x30
+Execution stopped at breakpoint
+
+show-stack
+Call Stack:
+main:3
+fact:13
+
+step
+Executed: jal x1, fact; PC = 0x34
+
+run
+Executed: addi sp, sp, -16; PC = 0x10
+Executed: sd x1, 8(sp); PC = 0x14
+Executed: sd x10, 0(sp); PC = 0x18
+Executed: addi x5, x10, -1; PC = 0x1C
+Executed: blt x0, x5, L1; PC = 0x20
+Executed: addi x10, x0, 1; PC = 0x24
+Executed: addi sp, sp, 16; PC = 0x28
+Execution stopped at breakpoint
+
+step
+Executed: jalr x0, 0(x1); PC = 0x2C
+
+show-stack
+Call Stack:
+main:3
+fact:14
+
+run
+Executed: addi x6, x10, 0; PC = 0x38
+Executed: ld x10, 0(sp); PC = 0x3C
+Executed: ld x1, 8(sp); PC = 0x40
+Executed: addi sp, sp, 16; PC = 0x44
+Executed: addi x20, x0, 0; PC = 0x48
+Executed: addi x8, x0, 0; PC = 0x4C
+Executed: add x8, x8, x6; PC = 0x50
+Executed: addi x20, x20, 1; PC = 0x54
+Executed: bne x20, x10, mul; PC = 0x58
+Executed: add x8, x8, x6; PC = 0x50
+Executed: addi x20, x20, 1; PC = 0x54
+Executed: bne x20, x10, mul; PC = 0x58
+Executed: add x10, x8, x0; PC = 0x5C
+Executed: jalr x0, 0(x1); PC = 0x60
+Executed: beq x0, x0, exit; PC = 0xC
+Executed: add x0, x0, x0; PC = 0x64
+
+show-stack
+Empty Call Stack: Execution complete
+
+exit
+Exited the simulator
