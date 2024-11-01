@@ -152,6 +152,14 @@ void sim_init(Simulator *s) {
 	for (int i = 0; i < MEM_SIZE; i++) {
 		s->mem[i] = 0;
 	} 
+
+    CacheConfig cfg = {256, 16, 1, FIFO, WRITETHROUGH};
+	
+	if (s->cache_enabled) {
+		s->cache = malloc(sizeof(Cache));
+		cache_init(s->cache, &cfg);
+		s->cache->mem = s->mem;
+	}
 }
 
 int sim_load(Simulator *s, char *file) {
@@ -333,39 +341,44 @@ void sim_run_one(Simulator *s) {
    
             int64_t rs1 = s->regs[rs1_idx], rd;
 			int64_t address = rs1 + imm;
-			int64_t mem_value = *(int64_t*)(&s->mem[address]); // take out the entire 64 bit value
-			uint64_t unsigned_mem_value = (uint64_t) mem_value;
 
             switch(funct3) {
                 case 0x0:{ //lb
+					int64_t mem_value = cache_read(s->cache, address, 1);
 					int8_t eight_bit_num = (mem_value << 56) >> 56;
 					rd = (int64_t) eight_bit_num;       
                     break;
 				}
                 case 0x1:{ // lh
+					int64_t mem_value = cache_read(s->cache, address, 2);
                     int16_t sixteen_bit_num = (mem_value << 48) >> 48; 
 					rd = (int64_t) sixteen_bit_num;
                     break;
 				}
 				case 0x2:{ // lw
+					int64_t mem_value = cache_read(s->cache, address, 4);
                     int32_t thirtytwo_bit_num = (mem_value << 32) >> 32; 
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
 				}
 				case 0x3: // ld
+					uint64_t mem_value = cache_read(s->cache, address, 8);
 					rd = mem_value;
 					break;
 				case 0x4:{ // lbu
+					uint64_t unsigned_mem_value = cache_read(s->cache, address, 1);
 					uint8_t eight_bit_num = (unsigned_mem_value << 56) >> 56;
 					rd = (int64_t) eight_bit_num;       
                     break;
 				}
 				case 0x5: { // lhu
+					uint64_t unsigned_mem_value = cache_read(s->cache, address, 2);
 					uint16_t sixteen_bit_num = (unsigned_mem_value << 48) >> 48;
 					rd = (int64_t) sixteen_bit_num;       
                     break;
 				}					
 				case 0x6:{ // lwu
+					uint64_t unsigned_mem_value = cache_read(s->cache, address, 4);
                     uint32_t thirtytwo_bit_num = (unsigned_mem_value << 32) >> 32; 
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
@@ -576,6 +589,8 @@ void sim_run(Simulator *s) {
 		sim_step(s);
 		ins = *(uint32_t*)(&s->mem[s->pc]);
 
+		if (!ins) break;
+
 		// Check if current line is a breakpoint
 		int line = get_ins_line(s, s->pc/4+1);
 		for (int i = 0; i < s->breaks->len; i++) {
@@ -584,7 +599,9 @@ void sim_run(Simulator *s) {
 				return;
 			}
 		}
-	}	
+	}
+
+	print_cache_stats(s->cache);
 } 
 
 // Adds a breakpoint

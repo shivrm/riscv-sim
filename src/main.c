@@ -2,13 +2,34 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifndef CACHE_H
+#include "cache.h"
+#endif
+
 #ifndef SIMULATOR_H
 #include "simulator.h"
 #endif
 
+int maian(void) {
+    uint8_t mem[0x100] = {1, 2, 3, 4};
+    CacheConfig cfg = {32768, 16, 1, FIFO, RANDOM};
+    Cache c;
+    cache_init(&c, &cfg);
+    c.mem = mem;
+    printf("num lines: %d\n", c.num_lines);
+    uint64_t x = cache_read(&c, 0x0, 4);
+    printf("x: 0x%lX\n", x);
+    x = cache_read(&c, 0x0, 4);
+    printf("x: 0x%lX\n", x);
+    
+    return 0;
+}
+
 int main(void) {
     Simulator s;
+    s.cache_enabled = 1;
     sim_init(&s);
+
 
     while (1) {
         char input[100] = "\0";

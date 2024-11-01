@@ -4,6 +4,10 @@
 #include "asm/emitter.h"
 #endif
 
+#ifndef CACHE_H
+#include "cache.h"
+#endif
+
 #define MEM_SIZE 0x50001
 
 typedef struct StackEntry {
@@ -29,6 +33,9 @@ typedef struct Simulator {
     LabelVec *labels;
     BreakPointVec *breaks;
     StackVec *stack;
+
+    int cache_enabled;
+    Cache *cache;
 } Simulator;
 
 void sim_init(Simulator *s);

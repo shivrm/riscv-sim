@@ -1,6 +1,6 @@
 
 CFLAGS= -O2
-CFILES=src/asm/lexer.c src/asm/parser.c src/asm/emitter.c src/simulator.c src/main.c
+CFILES=src/asm/lexer.c src/asm/parser.c src/asm/emitter.c src/cache.c src/simulator.c src/main.c
 OUT=./riscv_asm
 CC=clang
 
