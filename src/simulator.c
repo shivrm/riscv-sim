@@ -154,7 +154,8 @@ void sim_init(Simulator *s) {
 	} 
 
     CacheConfig cfg = {256, 16, 1, FIFO, WRITETHROUGH};
-	
+
+	// If cache is enabled, create a cache and initialize it	
 	if (s->cache_enabled) {
 		s->cache = malloc(sizeof(Cache));
 		cache_init(s->cache, &cfg);
