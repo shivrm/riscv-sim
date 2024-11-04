@@ -36,7 +36,7 @@ typedef struct Cache {
     CacheLine *lines;
 } Cache;
 
-
+void load_cache_config(CacheConfig *cfg, char *filename);
 void cache_init(Cache *c, CacheConfig *cfg);
 uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes);
 void print_cache_stats(Cache *c);

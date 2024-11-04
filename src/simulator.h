@@ -35,6 +35,7 @@ typedef struct Simulator {
     StackVec *stack;
 
     int cache_enabled;
+    CacheConfig cache_cfg;
     Cache *cache;
 } Simulator;
 

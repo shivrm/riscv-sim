@@ -13,6 +13,7 @@
 int main(void) {
     Simulator s;
     s.cache_enabled = 1;
+    load_cache_config(&s.cache_cfg, "config.txt");
     sim_init(&s);
 
 
