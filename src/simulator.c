@@ -207,6 +207,14 @@ int sim_load(Simulator *s, char *file) {
 		s->mem[DATA_SEGMENT_START + i] = d.data[i];	
 	}
 
+	if (s->cache_enabled) {
+		file[strlen(file) - 2] = '\0';
+		char *cache_output = malloc(30 * sizeof(char));
+		sprintf(cache_output, "%s.output", file);
+		FILE *output_file = fopen(cache_output, "w");
+		s->cache->output_file = output_file;	
+	}
+
 	return 0;
 }
 
@@ -398,19 +406,17 @@ void sim_run_one(Simulator *s) {
 			int64_t address = rs1 + imm;
             
             switch(funct3) {
-                case 0x0:{ //sb
-					*(uint8_t*)(&s->mem[address]) = (rs2 << 56)>>56; // i think this works just fine without the pointer typecasting
+                case 0x0: //sb
+					cache_write(s->cache, address, rs2, 1);
                     break;
-				}
-                case 0x1:{ // sh
-					*(uint16_t*)(&s->mem[address]) = (rs2 << 48)>>48;
+                case 0x1: // sh
+					cache_write(s->cache, address, rs2, 2);
                     break;
-				}
 				case 0x2: // sw
-					*(uint32_t*)(&s->mem[address]) = (rs2 << 32)>>32;
+					cache_write(s->cache, address, rs2, 4);
                     break;
 				case 0x3: // sd
-					*(uint64_t*)(&s->mem[address]) = rs2 ;
+					cache_write(s->cache, address, rs2, 8);
 					break;
 			}
             break;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 #ifndef CACHE_H
 #include "cache.h"
@@ -11,11 +12,14 @@
 #endif
 
 int main(void) {
+    srand(time(NULL));
+
     Simulator s;
     s.cache_enabled = 1;
     load_cache_config(&s.cache_cfg, "config.txt");
     sim_init(&s);
-
+    print_cache_config(s.cache);
+    printf("%d\n", s.cache->num_lines);
 
     while (1) {
         char input[100] = "\0";
@@ -55,5 +59,6 @@ int main(void) {
         printf("\n");
     }
 
+    fclose(s.cache->output_file);
     return 0;
 }

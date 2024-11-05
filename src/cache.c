@@ -19,9 +19,9 @@ void load_cache_config(CacheConfig *cfg, char *filename) {
     } else if (strcmp(replacement_policy, "FIFO") == 0) {
         cfg->replacement_policy = FIFO;
     }
-    if (strcmp(writeback_policy, "WT") == 0) {
+    if (strcmp(writeback_policy, "WB") == 0) {
         cfg->writeback_policy = WRITEBACK;
-    } else if (strcmp(writeback_policy, "WB") == 0) {
+    } else if (strcmp(writeback_policy, "WT") == 0) {
         cfg->writeback_policy = WRITETHROUGH;
     }
     fclose(f);
@@ -57,8 +57,7 @@ CacheEntry *cache_evict(Cache *c, CacheLine *line) {
 
     // Replace a random entry
     if (c->replacement_policy == RANDOM) {
-        // TODO: Implement actual random
-        entry = &line->entries[0];
+        entry = &line->entries[rand() % c->associativity];
     }
 
     // Replace first inserted (least insert-time) entry
@@ -81,6 +80,7 @@ CacheEntry *cache_evict(Cache *c, CacheLine *line) {
 
     // If entry is dirty, write back to memory
     if (entry->dirty) {
+        c->writebacks++;
         uint64_t index = line - c->lines;
         uint64_t block_start = (entry->tag * c->num_lines * c->block_size) + (index * c->block_size);
         memcpy(&c->mem[block_start], entry->data, c->block_size);
@@ -97,11 +97,11 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
 
     // If multiple-block access is needed then return directly
     // from memory
-    if ((offset + num_bytes) > c->num_lines) {
+    if ((offset + num_bytes) > c->block_size) {
         printf("WARN: Multi-block access; Directly accessing memory.\n");
         uint64_t result = 0;
         for (int i = 0; i < num_bytes; i++) {
-            result = (result << 8) + c->mem[addr + i];
+            result = (result << 8) + c->mem[addr + num_bytes - i - 1];
         }
         return result;
     }
@@ -124,7 +124,7 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
         c->misses++;
         
         // Load into cache
-        entry = &line->entries[0];
+        entry = cache_evict(c, line);
         uint64_t block_start = addr - (addr % (c->block_size * c->num_lines));
         memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t));
         entry->tag = tag;
@@ -138,7 +138,7 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
 
     // Prints log
     // TODO: Writes to a file
-    printf("R: Address: 0x%lX, Set: 0x%lX, %s, Tag: 0x%lX, %s\n",
+    fprintf(c->output_file, "R: Address: 0x%lX, Set: 0x%lX, %s, Tag: 0x%lX, %s\n",
         addr, index, hit? "Hit": "Miss", tag, entry->dirty? "Dirty": "Clean");
 
     // Set access time
@@ -150,7 +150,7 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
     uint8_t *start = &entry->data[offset];
     uint64_t result = 0;
     for (int i = 0; i < num_bytes; i++) {
-        result = (result << 4) + *(start++);        
+        result = (result << 8) + start[num_bytes - i - 1];        
     }
 
     return result;
@@ -163,7 +163,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
 
     // If multiple-block access is needed then return directly
     // from memory
-    if ((offset + num_bytes) > c->num_lines) {
+    if ((offset + num_bytes) > c->block_size) {
         // between different blocks
         printf("WARN: Multi-block access; directly accessing memory.\n");
         for (int i = 0; i < num_bytes; i++) {
@@ -192,6 +192,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
         
         // If writethrough, then assume no-allocate
         if (c->write_policy == WRITETHROUGH) {
+            c->writebacks++;
             for (int i = 0; i < num_bytes; i++) {
                 c->mem[addr + i] = value % 0xff;
                 value >>= 8;
@@ -200,7 +201,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
         }
 
         // Load into cache
-        entry = &line->entries[0];
+        entry = cache_evict(c, line);
         uint64_t block_start = addr - (addr % (c->block_size * c->num_lines));
         memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t));
         entry->tag = tag;
@@ -214,7 +215,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
     
     // Prints log
     // TODO: Writes to a file
-    printf("W: Address: 0x%lX, Set: 0x%lX, %s, Tag: 0x%lX, %s\n",
+    fprintf(c->output_file, "W: Address: 0x%lX, Set: 0x%lX, %s, Tag: 0x%lX, %s\n",
         addr, index, hit? "Hit": "Miss", tag, entry->dirty? "Dirty": "Clean");
 
     if (c->replacement_policy == LRU) {
@@ -224,6 +225,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
     // In the case of write-through, write to memory
     // and invalidate entry
     if (c->write_policy == WRITETHROUGH) {
+        c->writebacks++;
         for (int i = 0; i < num_bytes; i++) {
             c->mem[addr + i] = value % 0xff;
             value >>= 8;
@@ -238,6 +240,45 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
     }
 
     return;
+}
+
+void cache_invalidate(Cache *c) {
+    for (int i = 0; i < c->num_lines; i++) {
+        for (int j = 0; j < c->associativity; j++) {
+            c->lines[i].entries[j].valid = 0;
+        }
+    }
+}
+
+void cache_dump(Cache *c, char *filename) {
+    for (int i = 0; i < c->num_lines; i++) {
+        for (int j = 0; j < c->associativity; j++) {
+            CacheEntry entry = c->lines[i].entries[j];
+            if (entry.valid)
+                printf("Set: 0x%X, Tag: 0x%lx, %s\n", i, entry.tag, entry.dirty? "Dirty": "Clean");
+        }
+    }
+}
+
+void print_cache_config(Cache *c) {
+    printf("Cache Size: %zu\n", c->block_size * c->num_lines * c->associativity);
+    printf("Block Size: %zu\n", c->block_size);
+    printf("Associativity: %zu\n", c->associativity);
+    
+    char *rp;
+    switch (c->replacement_policy) {
+        case RANDOM: rp = "RANDOM"; break;
+        case LRU: rp = "LRU"; break;
+        case FIFO: rp = "FIFO"; break;
+    }
+    printf("Replacement Policy: %s\n", rp);
+
+    char *wp;
+    switch (c->write_policy) {
+        case WRITEBACK: wp = "WRITEBACK"; break;
+        case WRITETHROUGH: wp = "WRITETHROUGH"; break;
+    }
+    printf("Write Back Policy: %s\n", wp);
 }
 
 // Prints cache statistics
