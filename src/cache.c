@@ -9,6 +9,10 @@
 
 void load_cache_config(CacheConfig *cfg, char *filename) {
     FILE *f = fopen(filename, "r");
+    if (f == NULL){
+        printf("Unable to open the file. \n");
+        return;
+    }
     fscanf(f, "%lu %lu %lu", &cfg->size, &cfg->block_size, &cfg->associativity);
     char replacement_policy[20] = {0}, writeback_policy[20] = {0};
     fscanf(f, "%s %s", replacement_policy, writeback_policy);
@@ -27,17 +31,19 @@ void load_cache_config(CacheConfig *cfg, char *filename) {
     fclose(f);
 }
 
-// Initializes the cache
+// Initializes the cache (all the lines, blocks inside lines)
 void cache_init(Cache *c, CacheConfig *cfg) {
     c->num_lines = cfg->size / (cfg->block_size * cfg->associativity);
     c->block_size = cfg->block_size;
     c->associativity = cfg->associativity;
+    c->replacement_policy = cfg->replacement_policy;
+    c->write_policy = cfg->writeback_policy;
 
     c->lines = malloc(c->num_lines * sizeof(CacheLine));
 
-    for (int i = 0; i < c->num_lines; i++) {
+    for (int i = 0; i < c->num_lines; i++) { // go through each line, i.e, each set (a set corresponds to an index)
         c->lines[i].entries = malloc(c->associativity * sizeof(CacheEntry));
-        for (int j = 0; j < c->associativity; j++) {
+        for (int j = 0; j < c->associativity; j++) { // go through each block in the set
             c->lines[i].entries[j].valid = 0;
             c->lines[i].entries[j].data = malloc(c->block_size * sizeof(uint8_t));
         }
@@ -48,7 +54,7 @@ void cache_init(Cache *c, CacheConfig *cfg) {
 CacheEntry *cache_evict(Cache *c, CacheLine *line) {
     // If any entries are invalid, replace them
     for (int i = 0; i < c->associativity; i++) {
-        if (!line->entries[i].valid) {
+        if (!line->entries[i].valid) { // each block in a set has its own valid bit. 
             return &line->entries[i];
         }
     }
@@ -81,7 +87,7 @@ CacheEntry *cache_evict(Cache *c, CacheLine *line) {
     // If entry is dirty, write back to memory
     if (entry->dirty) {
         c->writebacks++;
-        uint64_t index = line - c->lines;
+        uint64_t index = line - c->lines; // use pointer arithmetic
         uint64_t block_start = (entry->tag * c->num_lines * c->block_size) + (index * c->block_size);
         memcpy(&c->mem[block_start], entry->data, c->block_size);
     }
@@ -93,7 +99,7 @@ CacheEntry *cache_evict(Cache *c, CacheLine *line) {
 uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
     uint64_t offset = addr % c->block_size,
              index = (addr / c->block_size) % c->num_lines,
-             tag = addr / (c->block_size * c->num_lines);
+             tag = addr / (c->block_size * c->num_lines); // find the index, offset and tag of the address
 
     // If multiple-block access is needed then return directly
     // from memory
@@ -106,7 +112,7 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
         return result;
     }
 
-    CacheLine *line = &c->lines[index];
+    CacheLine *line = &c->lines[index]; // Find the right index (right row/set) to look further into
     CacheEntry *entry;
     int hit = 0;
 
@@ -124,10 +130,10 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
         c->misses++;
         
         // Load into cache
-        entry = cache_evict(c, line);
-        uint64_t block_start = addr - (addr % (c->block_size * c->num_lines));
-        memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t));
-        entry->tag = tag;
+        entry = cache_evict(c, line); // this doesn't mean we're evicting an entire line; 
+        uint64_t block_start = addr - (addr % (c->block_size)); // calculates the address of the block which gets into the cache
+        memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t)); // we fetch the data from memory and put it in the cache block
+        entry->tag = tag; // set the new tag
         entry->valid = 1;
 
         // Set insert time
@@ -146,8 +152,8 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
         entry->access_time = c->monotime++;
     }
 
-    // Read the required bytes
-    uint8_t *start = &entry->data[offset];
+    // Read the required bytes from cache
+    uint8_t *start = &entry->data[offset]; // read the first byte
     uint64_t result = 0;
     for (int i = 0; i < num_bytes; i++) {
         result = (result << 8) + start[num_bytes - i - 1];        
@@ -189,20 +195,20 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
 
     if (!hit) {
         c->misses++;
-        
-        // If writethrough, then assume no-allocate
+    
+        // If writethrough, then assume no-allocate; and write directly to memory
         if (c->write_policy == WRITETHROUGH) {
             c->writebacks++;
             for (int i = 0; i < num_bytes; i++) {
-                c->mem[addr + i] = value % 0xff;
+                c->mem[addr + i] = value % 0xff; // taking the remainder when divided by 255
                 value >>= 8;
             }
-            return; 
+            return; // we're done with this function here
         }
 
         // Load into cache
-        entry = cache_evict(c, line);
-        uint64_t block_start = addr - (addr % (c->block_size * c->num_lines));
+        entry = cache_evict(c, line); // evict some block in the line to make room for the new block we're writing to
+        uint64_t block_start = addr - (addr % (c->block_size));
         memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t));
         entry->tag = tag;
         entry->valid = 1;
@@ -220,7 +226,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
 
     if (c->replacement_policy == LRU) {
         entry->access_time = c->monotime++;
-    }
+    } // update the access time of that particular entry
 
     // In the case of write-through, write to memory
     // and invalidate entry
@@ -251,13 +257,15 @@ void cache_invalidate(Cache *c) {
 }
 
 void cache_dump(Cache *c, char *filename) {
+    FILE *f = fopen(filename, "w");
     for (int i = 0; i < c->num_lines; i++) {
         for (int j = 0; j < c->associativity; j++) {
             CacheEntry entry = c->lines[i].entries[j];
             if (entry.valid)
-                printf("Set: 0x%X, Tag: 0x%lx, %s\n", i, entry.tag, entry.dirty? "Dirty": "Clean");
+                fprintf(f, "Set: 0x%X, Tag: 0x%lx, %s\n", i, entry.tag, entry.dirty? "Dirty": "Clean");
         }
     }
+    fclose(f);
 }
 
 void print_cache_config(Cache *c) {

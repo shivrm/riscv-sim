@@ -15,17 +15,49 @@ int main(void) {
     srand(time(NULL));
 
     Simulator s;
-    s.cache_enabled = 1;
-    load_cache_config(&s.cache_cfg, "config.txt");
-    sim_init(&s);
-    print_cache_config(s.cache);
-    printf("%d\n", s.cache->num_lines);
-
     while (1) {
         char input[100] = "\0";
         scanf("%s", input);
+        if (strcmp(input, "cache_sim") == 0) {
+            scanf("%s", input);  // Read the next word (enable/disable/status/invalidate/dump/stats)
+            if (strcmp(input, "enable") == 0) {
+                printf("\n");
+                char config_file[100] = "\0";
+                scanf("%s", config_file);
+                
+                s.cache_enabled = 1;
+                load_cache_config(&s.cache_cfg, config_file);
+                sim_init(&s);
+                print_cache_config(s.cache);
+                printf("%d\n", s.cache->num_lines);
+            } 
+            else if (strcmp(input, "disable") == 0) {
+                s.cache_enabled = 0;
+                printf("Cache simulator disabled.\n");
+            } 
+            else if (strcmp(input, "status") == 0) {
+                printf("\n");
+                printf("%s", s.cache_enabled ? "Cache enabled.\n" : "Cache disabled.\n");
+                if (s.cache_enabled) {
+                    print_cache_config(s.cache);
+                    printf("%d\n", s.cache->num_lines);
+                }
+            }
+            else if (strcmp(input, "invalidate") == 0){
+                cache_invalidate(s.cache);
+            }
+            else if (strcmp(input, "dump") == 0){ // only take care of the valid entries
+                printf("\n");
+                char dump_file[100] = "\0";
+                scanf("%s", dump_file);
+                cache_dump(s.cache, dump_file);
+            }
+            else if (strcmp(input, "stats") == 0){
+                print_cache_stats(s.cache);
+            }
+        }
 
-        if (strcmp(input, "load") == 0) {
+        else if (strcmp(input, "load") == 0) {
             char filename[100] = "\0";
             scanf("%s", filename);
             sim_init(&s);

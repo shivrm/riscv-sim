@@ -368,10 +368,11 @@ void sim_run_one(Simulator *s) {
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
 				}
-				case 0x3: // ld
+				case 0x3:{ // ld
 					uint64_t mem_value = cache_read(s->cache, address, 8);
 					rd = mem_value;
 					break;
+				}
 				case 0x4:{ // lbu
 					uint64_t unsigned_mem_value = cache_read(s->cache, address, 1);
 					uint8_t eight_bit_num = (unsigned_mem_value << 56) >> 56;
@@ -606,7 +607,7 @@ void sim_run(Simulator *s) {
 		}
 	}
 
-	print_cache_stats(s->cache);
+	if (s->cache_enabled) print_cache_stats(s->cache);
 } 
 
 // Adds a breakpoint

@@ -1,4 +1,4 @@
-#define CACHE_H
+ #define CACHE_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,13 +7,13 @@
 // Config struct for cache
 typedef struct CacheConfig {
     size_t size, block_size, associativity,
-    replacement_policy, writeback_policy;
+    writeback_policy, replacement_policy;
 } CacheConfig;
 
 typedef struct CacheEntry {
     int valid, dirty;
     uint64_t tag;
-    union { uint64_t insert_time, access_time; }; // Used for replacement
+    union { uint64_t insert_time, access_time; }; // Used for replacement (FIFO, LRU policies)
     uint8_t *data;
 } CacheEntry;
 
@@ -46,4 +46,6 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes);
 void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes);
 
 void print_cache_config(Cache *c);
+void cache_invalidate(Cache *c);
 void print_cache_stats(Cache *c);
+void cache_dump(Cache *c, char *filename);

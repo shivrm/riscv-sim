@@ -1,0 +1,2 @@
+R: Address: 0x10000, Set: 0x0, Miss, Tag: 0x100, Clean
+R: Address: 0x10004, Set: 0x0, Hit, Tag: 0x100, Clean
