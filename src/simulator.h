@@ -41,6 +41,7 @@ typedef struct Simulator {
 
 void sim_init(Simulator *s);
 int sim_load(Simulator *s, char *file);
+void sim_uninit(Simulator *s);
 void sim_run_one(Simulator *s);
 void sim_step(Simulator *s);
 void sim_run(Simulator *s);

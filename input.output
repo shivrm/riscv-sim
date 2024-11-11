@@ -1,0 +1,2 @@
+W: Address: 0x10000, Set: 0x0, Miss, Tag: 0x200, Clean
+W: Address: 0x10020, Set: 0x0, Hit, Tag: 0x200, Dirty

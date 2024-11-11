@@ -112,28 +112,28 @@ int parse_register(Parser *p, ParseErr *err) {
 }
 
 // Parses a number
-long parse_number(Parser *p, ParseErr *err) {
+unsigned long parse_number(Parser *p, ParseErr *err) {
     char *end;
-	long n;
+	unsigned long n;
 
     switch (p->current.type) {
     case TOK_DECNUM:
-        n = strtol(&p->src[p->current.span.start], &end, 10);
+        n = strtoul(&p->src[p->current.span.start], &end, 10);
         parser_advance(p, err);
 		return n;
     case TOK_HEXNUM:
-        n = strtol(&p->src[p->current.span.start], &end, 16);
+        n = strtoul(&p->src[p->current.span.start], &end, 16);
         parser_advance(p, err);
 		return n;
 	case TOK_OCTNUM:
-        n = strtol(&p->src[p->current.span.start], &end, 8);
+        n = strtoul(&p->src[p->current.span.start], &end, 8);
         parser_advance(p, err);
 		return n;
 	case TOK_BINNUM: ;
 		// strtol doesn't handle `0b` syntax, so we parse the minus
 		// sign ourselves and use strtol for everything after `0b`. 
 		int negative = (p->src[p->current.span.start] == '-');	
-        n = strtol(&p->src[p->current.span.start + 2 + negative], &end, 2);
+        n = strtoul(&p->src[p->current.span.start + 2 + negative], &end, 2);
         parser_advance(p, err);
         return negative? -n: n;
 	default:
@@ -558,7 +558,7 @@ void parse_data_element(Parser *p, DataVec *d, ParseErr *err) {
 			case TOK_HEXNUM:
 			case TOK_OCTNUM:
 			case TOK_DECNUM: ;
-				long n = parse_number(p, err);
+				uint64_t n = parse_number(p, err);
 				if (err->is_err) return;
 
 				// If there is no space, grow the array

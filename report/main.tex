@@ -2,7 +2,7 @@
 \usepackage{graphicx}
 \usepackage[a5paper, margin=15mm]{geometry}
 
-\title{Lab 4 - Project Report}
+\title{Lab 7 - Project Report}
 \author{AI24BTECH11031 - Shivram S\\
 AI23BTECH11022 - Dhadheechi Ravva}
 \date{}
@@ -14,9 +14,9 @@ AI23BTECH11022 - Dhadheechi Ravva}
 
 \section{Introduction}
 
-As part of the CS2323 Computer Architecure course, we had to develop a simulator
-for the RISC-V instruction set architecture. This report outlines the design of the 
-simulator and the major design decisions taken during its development.
+As part of the CS2323 Computer Architecture course, we had to extend the RISC-V 
+simulator developed in Lab 4 to support cache simulation. This report outlines
+the design of the cache simulator.
 
 \section{Usage}
 
@@ -32,201 +32,34 @@ The simulator can be run using the following command:
 $ ./riscv_asm
 \end{verbatim}
 
-\section{Modifications to the Assembler}
+\section{Design of The Cache}
 
-Some small changes had to be made to the assembler which we created in Lab-3.
 
-Our assembler did not have the ability to parse the \texttt{.data} section.
-This functionality was added during the development of the simulator. The
-\texttt{text\_section} field was added to the parser struct to indicate whether
-the parser was currently in the text section or the data section. An additional
-function was added to parse the data section and write the result to an array.
+The simulator's cache consists of several \textbf{lines}. Each line consists of several
+\textbf{entries}, and each entry holds a block of memory. 
 
-The emitter was modified to write machine code to a buffer instead of to a file.
-Additionally, the label finding and instruction encoding parts were split into
-separate functions.
+The cache has a \textbf{replacement policy} which determines the block to be replaced in
+case of a conflict, and a \textbf{write-back policy}, which tells it how to handle writes.
 
-\section{Design of The Simulator}
+The \texttt{Cache} struct holds all data related to the simulator's cache
 
-The simulator holds all state in a struct:
-
-\begin{verbatim}
-typedef struct Simulator {
-    uint64_t pc, regs[32];    
-    uint8_t mem[MEM_SIZE];
-    char *src; 
-    ParseNode *nodes;
-    LabelVec *labels;
-    BreakPointVec *breaks;
-    StackVec *stack;
-} Simulator;
-\end{verbatim}
-
-The program counter, registers and memory are part of this struct. \texttt{src} is
-the source assembly program. \texttt{LabelVec}, \texttt{BreakPointVec} and \texttt{StackVec}
-are dynamic arrays for storing a list of labels, breakpoints, and stack entries respectively.
-They are defined as follows:
-
-\begin{verbatim}
-typedef struct LabelVec {
-    int len, cap;
-    LabelEntry *data;
-} LabelVec;
-
-typedef struct BreakPointVec {
-    size_t len, cap;
-    int *data;
-} BreakPointVec;
-
-typedef struct StackVec {
-    size_t len, cap;
-    StackEntry *data;
-} StackVec;
-\end{verbatim}
-
-\texttt{LabelEntry} and \texttt{StackEntry} are defined as:
-
-\begin{verbatim}
-typedef struct LabelEntry {
-    char *lbl_name;
-    int offset;
-} LabelEntry;
+\begin{verbatim} 
+typedef struct Cache {
+    // Cache configuration
+    size_t num_lines, block_size, associativity;
+    enum {WRITEBACK, WRITETHROUGH} write_policy;
+    enum {FIFO, LRU, RANDOM} replacement_policy;
     
-typedef struct StackEntry {
-    char *label;
-    int line;
-} StackEntry;
+    size_t hits, misses, writebacks; // Statistics
+
+    size_t monotime; // For maintaining insert and access times
+    uint8_t *mem; // Simulator memory 
+    CacheLine *lines; // The actual cache data
+    FILE *output_file; // File for logging accesses
+} Cache;
 \end{verbatim}
 
-\subsection{Loading Files}
 
-To use the simulator, we must first load a source file and assemble it. This is 
-done using the \texttt{sim\_init} and \texttt{sim\_run} functions.
 
-\begin{verbatim}
-// Initializes the simuator; zeroes memory and registers
-void sim_init(Simulator *s);
-
-// Assemblers a file and loads it into the simulator's memory
-int sim_load(Simulator *s, char *file);
-\end{verbatim}
-
-\subsection{Executing Instructioms}
-
-The bulk of the simulator is the \texttt{sim\_run\_one} function,
-which fetches one instruction and executes it. It is implemented
-in the form of a large \texttt{switch-case} statement, to conditionally
-execute code based on the opcode, funct3 and funct7 values.
-
-Inside each case statement, the simulator fetches the read registers
-(depending on the instruction type). It might go into further switch-case
-statements based on the funct3 value, which correspond to different instructions
-belonging to the same instruction type. The simulator then performs the operation
-corresponding to the particular instruction, writes back to rd (the destination
-register), writes to memory (for the store instructions), or just updates the PC
-(for jal and B format instructions).
-
-The \texttt{jal} and \texttt{jalr} instructions have extra code to push and pop
-values from the stack.
-
-\texttt{sim\_run\_one} is not used directly, but is instead wrapped by the \texttt{sim\_step}
-function. This function adds a zero-instruction check, calls \texttt{sim\_run\_one}, and also
-handles updates of the call stack.
-
-\texttt{sim\_step} is further wrapped by the \texttt{sim\_run} function, which keeps executing
-instruction until we reach a breakpoint or the end of the program.
-
-\subsection{Breakpoints}
-
-The user can set breakpoints on certain lines in the program. When the simulator reaches that line,
-it stops execution and alerts the user that a breakpoint has been reached. Adding and removing
-breakpoints are done through the \texttt{sim\_add\_breakpoint} and \texttt{sim\_remove\_breakpoint}
-functions respectively.
-
-\begin{verbatim}    
-// Adds a breakpoint
-void sim_add_breakpoint(Simulator *s, int line);
-
-// Removes a breakpoint
-void sim_remove_breakpoint(Simulator *s, int line);
-\end{verbatim}
-
-\subsection{The Call Stack}
-
-The simulator keeps tracks of function calls using the call stack. When a function is called, it
-is pushed onto the stack along with the line number of the last executed instruction. On returning
-from the function, the entry is popped from the stack. This is done using the \texttt{sim\_stack\_push}
-and \texttt{sim\_stack\_pop} functions.
-
-\begin{verbatim}
-// Pushes a label and line onto the stack
-void sim_stack_push(Simulator *s, char *label, int line);
-
-// Pops the topmost entry from the stack
-void sim_stack_pop(Simulator *s);
-\end{verbatim}
-
-Printing the stack is done through the \texttt{sim\_show\_stack} function.
-
-\begin{verbatim}
-// Prints the contents of the stack
-void sim_show_stack(Simulator *s);
-\end{verbatim}
-
-\subsection{Command Line Interface}
-
-The user gives instructions to the simulator through a command-line interface. The code for this is in
-\texttt{main.c}. The available commands are:
-
-\begin{itemize}
-    \item \texttt{load <filename>}: Loads the file containing RISC-V assembly code
-    \item \texttt{run}: Executes a given RISC-V code till the end
-    \item \texttt{regs}: Prints the values of all registers
-    \item \texttt{mem <addr> <count>}: Prints count memory locations starting from address addr
-    \item \texttt{step}: Runs one instruction
-    \item \texttt{show-stack}: Prints the call stack
-    \item \texttt{break <line>}: Sets a breakpoint at the specified line
-    \item \texttt{del break <line>}: Deletes the breakpoint at the specified line.
-    \item \texttt{exit}: Exits the simulator 
-\end{itemize}
-
-\section{Testing}
-
-Some example testcases have been provided in the \texttt{test/} directory. These
-can be run by loading the \texttt{input.s} file, executing the commands in \texttt{expected.txt},
-and comparing the output.
-
-\section{Future Scope}
-
-The simulator could be further enhanced by:
-\begin{itemize}
-    \item Adding support for pipelining, hazard detection, multiple issue, etc.
-    \item Implementing a graphical user interface for more intuitive operation of the simulator. 
-    \item Allowing modification of memory or registers using commands.
-    \item Adding support for stepping back/reversing execution.
-\end{itemize}
-
-\section{Project File Structure}
-
-\begin{verbatim}
-    .
-    +-- Makefile
-    +-- report
-    |   \-- main.tex    // Source file for the report
-    +-- src
-    |   +-- asm         // Source code for the assembler
-    |   |   +-- emitter.c
-    |   |   +-- emitter.h
-    |   |   +-- lexer.c
-    |   |   +-- lexer.h
-    |   |   +-- parser.c
-    |   |   +-- parser.h
-    |   |   +-- tables.c
-    |   |   \-- tables.h
-    |   +-- main.c
-    |   +-- simulator.c
-    |   \-- simulator.h
-    \-- test             // Testcases 
-\end{verbatim}
 
 \end{document}

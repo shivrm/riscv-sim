@@ -161,6 +161,12 @@ void sim_init(Simulator *s) {
 	}
 }
 
+void sim_uninit(Simulator *s) {
+	if (s->cache_enabled) {
+		fclose(s->cache->output_file);
+	}
+}
+
 int sim_load(Simulator *s, char *file) {
 	FILE *fin = fopen(file, "r");	
 	if (!fin) {
@@ -218,6 +224,22 @@ int sim_load(Simulator *s, char *file) {
 	return 0;
 }
 
+uint64_t mem_read(Simulator *s, uint64_t addr, size_t num_bytes) {
+	if (s->cache_enabled) {
+		return cache_read(s->cache, addr, num_bytes);
+	} else {
+		return *(uint64_t*)&s->mem[addr];
+	}
+}
+
+void mem_write(Simulator *s, uint64_t addr, uint64_t value, size_t num_bytes) {
+	if (s->cache_enabled) {
+		return cache_write(s->cache, addr, value, num_bytes);
+	} else {
+		*(uint64_t*)&s->mem[addr] = value;
+	}
+}
+
 void sim_run_one(Simulator *s) {
     // Read 32-bits from index `pc` of memory
     uint32_t ins = *(uint32_t*)(&s->mem[s->pc]);
@@ -266,6 +288,7 @@ void sim_run_one(Simulator *s) {
 								break;
 							}
 					}					
+					break;
 				case 0x2: // slt
 					rd = (rs1 < rs2)?1:0;
 					break;
@@ -324,6 +347,7 @@ void sim_run_one(Simulator *s) {
 					}
 					break;
 				}					
+				break;
 				case 0x2: // slti
 					rd = (rs1 < imm)?1:0; // rs1 and imm are signed integers by default
 					break;
@@ -351,42 +375,42 @@ void sim_run_one(Simulator *s) {
 
             switch(funct3) {
                 case 0x0:{ //lb
-					int64_t mem_value = cache_read(s->cache, address, 1);
+					int64_t mem_value = mem_read(s, address, 1);
 					int8_t eight_bit_num = (mem_value << 56) >> 56;
 					rd = (int64_t) eight_bit_num;       
                     break;
 				}
                 case 0x1:{ // lh
-					int64_t mem_value = cache_read(s->cache, address, 2);
+					int64_t mem_value = mem_read(s, address, 2);
                     int16_t sixteen_bit_num = (mem_value << 48) >> 48; 
 					rd = (int64_t) sixteen_bit_num;
                     break;
 				}
 				case 0x2:{ // lw
-					int64_t mem_value = cache_read(s->cache, address, 4);
+					int64_t mem_value = mem_read(s, address, 4);
                     int32_t thirtytwo_bit_num = (mem_value << 32) >> 32; 
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
 				}
 				case 0x3:{ // ld
-					uint64_t mem_value = cache_read(s->cache, address, 8);
+					uint64_t mem_value = mem_read(s, address, 8);
 					rd = mem_value;
 					break;
 				}
 				case 0x4:{ // lbu
-					uint64_t unsigned_mem_value = cache_read(s->cache, address, 1);
+					uint64_t unsigned_mem_value = mem_read(s, address, 1);
 					uint8_t eight_bit_num = (unsigned_mem_value << 56) >> 56;
 					rd = (int64_t) eight_bit_num;       
                     break;
 				}
 				case 0x5: { // lhu
-					uint64_t unsigned_mem_value = cache_read(s->cache, address, 2);
+					uint64_t unsigned_mem_value = mem_read(s, address, 2);
 					uint16_t sixteen_bit_num = (unsigned_mem_value << 48) >> 48;
 					rd = (int64_t) sixteen_bit_num;       
                     break;
 				}					
 				case 0x6:{ // lwu
-					uint64_t unsigned_mem_value = cache_read(s->cache, address, 4);
+					uint64_t unsigned_mem_value = mem_read(s, address, 4);
                     uint32_t thirtytwo_bit_num = (unsigned_mem_value << 32) >> 32; 
 					rd = (int64_t) thirtytwo_bit_num;
                     break;
@@ -408,16 +432,16 @@ void sim_run_one(Simulator *s) {
             
             switch(funct3) {
                 case 0x0: //sb
-					cache_write(s->cache, address, rs2, 1);
+					mem_write(s, address, rs2, 1);
                     break;
                 case 0x1: // sh
-					cache_write(s->cache, address, rs2, 2);
+					mem_write(s, address, rs2, 2);
                     break;
 				case 0x2: // sw
-					cache_write(s->cache, address, rs2, 4);
+					mem_write(s, address, rs2, 4);
                     break;
 				case 0x3: // sd
-					cache_write(s->cache, address, rs2, 8);
+					mem_write(s, address, rs2, 8);
 					break;
 			}
             break;
