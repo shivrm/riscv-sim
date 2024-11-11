@@ -33,9 +33,17 @@ void load_cache_config(CacheConfig *cfg, char *filename) {
 
 // Initializes the cache (all the lines, blocks inside lines)
 void cache_init(Cache *c, CacheConfig *cfg) {
-    c->num_lines = cfg->size / (cfg->block_size * cfg->associativity);
+    // Associativity 0 means fully associative 
+    if (cfg->associativity == 0) {
+        c->associativity = cfg->size / cfg->block_size;
+        c->num_lines = 1;
+    } else {
+        c->associativity = cfg->associativity;
+        c->num_lines = cfg->size / (cfg->block_size * cfg->associativity);
+    }
     c->block_size = cfg->block_size;
-    c->associativity = cfg->associativity;
+
+
     c->replacement_policy = cfg->replacement_policy;
     c->write_policy = cfg->writeback_policy;
 
@@ -86,8 +94,8 @@ CacheEntry *cache_evict(Cache *c, CacheLine *line) {
 
     // If entry is dirty, write back to memory
     if (entry->dirty) {
-        c->writebacks++;
-        uint64_t index = line - c->lines; // use pointer arithmetic
+        c->writebacks += 1;
+        uint64_t index = line - c->lines;
         uint64_t block_start = (entry->tag * c->num_lines * c->block_size) + (index * c->block_size);
         memcpy(&c->mem[block_start], entry->data, c->block_size);
     }
@@ -128,12 +136,13 @@ uint64_t cache_read(Cache *c, uint64_t addr, size_t num_bytes) {
 
     if (!hit) {
         c->misses++;
-        
+
         // Load into cache
-        entry = cache_evict(c, line); // this doesn't mean we're evicting an entire line; 
-        uint64_t block_start = addr - (addr % (c->block_size)); // calculates the address of the block which gets into the cache
-        memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t)); // we fetch the data from memory and put it in the cache block
-        entry->tag = tag; // set the new tag
+        entry = cache_evict(c, line);
+        uint64_t block_start = addr - (addr % (c->block_size));
+        memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t));
+        entry->tag = tag;
+        entry->dirty = 0;
         entry->valid = 1;
 
         // Set insert time
@@ -198,12 +207,15 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
     
         // If writethrough, then assume no-allocate; and write directly to memory
         if (c->write_policy == WRITETHROUGH) {
-            c->writebacks++;
+            c->writebacks += 1;
             for (int i = 0; i < num_bytes; i++) {
                 c->mem[addr + i] = value % 0xff; // taking the remainder when divided by 255
                 value >>= 8;
             }
-            return; // we're done with this function here
+    
+            fprintf(c->output_file, "W: Address: 0x%lX, Set: 0x%lX, %s, Tag: 0x%lX, %s\n",
+                addr, index, "Miss", tag, "Clean");
+            return; 
         }
 
         // Load into cache
@@ -211,6 +223,7 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
         uint64_t block_start = addr - (addr % (c->block_size));
         memcpy(entry->data, &c->mem[block_start], c->block_size * sizeof(uint8_t));
         entry->tag = tag;
+        entry->dirty = 0;
         entry->valid = 1;
 
         // Set insert time
@@ -220,7 +233,6 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
     }
     
     // Prints log
-    // TODO: Writes to a file
     fprintf(c->output_file, "W: Address: 0x%lX, Set: 0x%lX, %s, Tag: 0x%lX, %s\n",
         addr, index, hit? "Hit": "Miss", tag, entry->dirty? "Dirty": "Clean");
 
@@ -228,22 +240,21 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
         entry->access_time = c->monotime++;
     } // update the access time of that particular entry
 
-    // In the case of write-through, write to memory
-    // and invalidate entry
+    // In the case of write-through, write to memory and cache
     if (c->write_policy == WRITETHROUGH) {
-        c->writebacks++;
+        c->writebacks += 1;
         for (int i = 0; i < num_bytes; i++) {
             c->mem[addr + i] = value % 0xff;
             value >>= 8;
         }
-        entry->valid = 0;
-    // In the case of write-back, write to cache
-    } else if (c->write_policy == WRITEBACK) {
-        for (int i = 0; i < num_bytes; i++) {
-            entry->data[offset + i] = value % 0xff;
-            value >>= 8;
-        }
+    } else {
+        entry->dirty = 1;
     }
+    for (int i = 0; i < num_bytes; i++) {
+        entry->data[offset + i] = value % 0xff;
+        value >>= 8;
+    }
+
 
     return;
 }
@@ -293,6 +304,6 @@ void print_cache_config(Cache *c) {
 void print_cache_stats(Cache *c) {
     size_t accesses = c->hits + c->misses;
     double hit_rate = (double)c->hits / accesses;
-    printf("D-Cache statistics: Accesses=%lu, Hit=%lu, Miss=%lu, Hit Rate=%lf\n", accesses, c->hits, c->misses, hit_rate);
+    printf("D-Cache statistics: Accesses=%lu, Hit=%lu, Miss=%lu, Hit Rate=%lf, Writebacks: %lu\n", accesses, c->hits, c->misses, hit_rate, c->writebacks);
     return;
 }
