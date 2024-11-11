@@ -34,6 +34,7 @@ typedef struct Simulator {
     BreakPointVec *breaks;
     StackVec *stack;
 
+    int execution_in_progress;
     int cache_enabled;
     CacheConfig cache_cfg;
     Cache *cache;

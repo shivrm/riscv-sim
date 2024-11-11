@@ -25,11 +25,22 @@ int main(void) {
             if (strcmp(input, "enable") == 0) {
                 char config_file[100] = "\0";
                 scanf("%s", config_file);    
+
+                if (s.execution_in_progress) {
+                    printf("Can't enable cache during execution.\n");
+                    continue;
+                }
+
                 s.cache_enabled = 1;
                 load_cache_config(&s.cache_cfg, config_file);
                 sim_init(&s);
             } 
             else if (strcmp(input, "disable") == 0) {
+                if (s.execution_in_progress) {
+                    printf("Can't disable cache during execution.\n");
+                    continue;
+                }
+
                 s.cache_enabled = 0;
                 printf("Cache simulator disabled.\n");
             } 

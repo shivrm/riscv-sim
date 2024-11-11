@@ -1,35 +1,21 @@
-; Recursively finds sum of first n natural numbers
-; n is defined in .data
-
 .data
-.word 10
+.dword 8, 8
 
 .text
 lui x3, 0x10
-lui x2, 0x50
-lw x10, 0(x3)
+ld x4, 0(x3)
+ld x5, 8(x3)
+addi x3, x3, 16
 
-jal x1, Sum
-beq x0, x0, Exit
-
-Sum:
-    beq x10, x0, Return
-    sd x1, 0(x2)
-    addi x2, x2, -8
-    sd x10, 0(x2)
-    addi x2, x2, -8
-
-    addi x10, x10, -1
-    jal x1, Sum
-
-    addi x2, x2, 8
-    ld x11, 0(x2)
-    add x10, x10, x11
-    addi x2, x2, 8
-    ld x1, 0(x2)
- 
-    Return:
-        jalr x0, 0(x1)
-
-Exit:
-    add x0, x0, x0
+    addi x10, x0, 0
+    add x12, x3, x0
+If1: beq x4, x10, end1
+       addi x11, x0, 0
+If2:    beq x5, x11, end2
+           sd x20, 0(x12)
+           addi x12, x12, 8
+           addi x11, x11, 1
+           beq x0, x0, If2
+end2:   addi x10, x10, 1
+       beq x0, x0, If1
+end1: add x0, x0, x0

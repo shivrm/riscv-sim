@@ -304,6 +304,6 @@ void print_cache_config(Cache *c) {
 void print_cache_stats(Cache *c) {
     size_t accesses = c->hits + c->misses;
     double hit_rate = (double)c->hits / accesses;
-    printf("D-Cache statistics: Accesses=%lu, Hit=%lu, Miss=%lu, Hit Rate=%lf, Writebacks: %lu\n", accesses, c->hits, c->misses, hit_rate, c->writebacks);
+    printf("D-Cache statistics: Accesses=%lu, Hit=%lu, Miss=%lu, Hit Rate=%lf\n", accesses, c->hits, c->misses, hit_rate);
     return;
 }

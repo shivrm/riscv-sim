@@ -1,6 +1,7 @@
-# RISC-V Simulator
+# RISC-V Cache Simulator
 
-A simulator for the RISC-V instruction set architecture, developed as part of CS2323.
+A simulator for the RISC-V instruction set architecture, along with a
+cache simulator, developed as part of CS2323.
 
 # Usage
 
@@ -9,17 +10,17 @@ test it. To build, run:
 ```
 $ make
 ```
-This produces an executable called `riscv_asm` in the project directory.
+This produces an executable called `riscv_sim` in the project directory.
 The simulator can be run using the following command:
 ```
-$ ./riscv_asm
+$ ./riscv_sim
 ```
 
 # Project File Structure
 
 ```
 +-- Makefile
-+-- report
++-- report.pdf
 | \-- main.tex // Source file for the report
 +-- src
 | +-- asm // Source code for the assembler
@@ -32,7 +33,10 @@ $ ./riscv_asm
 | | +-- tables.c
 | | \-- tables.h
 | +-- main.c
-| +-- simulator.c
-| \-- simulator.h
-\-- test // Testcases
+| +-- simulator.c // Source code for the simulator
+| +-- simulator.h
+| +-- cache.c // Source code for the cache simulator
+| +-- cache.h
++-- test // Testcases
+\-- test.sh // Automatic testing script
 ```

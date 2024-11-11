@@ -1,26 +1,21 @@
-main: addi x10, x0, 2
-      lui sp, 0x50
-      jal x1, fact
-      beq x0, x0, exit
-fact: addi sp, sp, -16
- 	  sd x1, 8(sp)
- 	  sd x10, 0(sp)
- 	  addi x5, x10, -1
- 	  blt x0, x5, L1
- 	  addi x10, x0, 1
- 	  addi sp, sp, 16
- 	  jalr x0, 0(x1)
-L1:   addi x10, x10, -1
- 	  jal x1, fact
- 	  addi x6, x10, 0
- 	  ld x10, 0(sp)
- 	  ld x1, 8(sp)
- 	  addi sp, sp, 16
-        addi x20, x0, 0
-        addi x8, x0, 0
-mul: add x8, x8, x6
-     addi x20, x20, 1
-     bne x20, x10, mul
-     add x10, x8, x0
-     jalr x0, 0(x1)
-exit: add x0, x0, x0
+.data
+.dword 8, 8
+
+.text
+lui x3, 0x10
+ld x4, 0(x3)
+ld x5, 8(x3)
+addi x3, x3, 16
+
+    addi x10, x0, 0
+    add x12, x3, x0
+If1: beq x4, x10, end1
+       addi x11, x0, 0
+If2:    beq x5, x11, end2
+           sd x20, 0(x12)
+           addi x12, x12, 8
+           addi x11, x11, 1
+           beq x0, x0, If2
+end2:   addi x10, x10, 1
+       beq x0, x0, If1
+end1: add x0, x0, x0

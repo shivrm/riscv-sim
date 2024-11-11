@@ -1,8 +1,21 @@
 .data
-.dword 0x123456789abcdef0
-.word 0x12345678 0x9abcdef0
-.half 0x1234 0x5678 0x9abc 0xdef0
-.byte 0x12 0x34 0x56 0x78 0x9a 0xbc 0xde 0xf0
+.dword 16, 16
 
 .text
-add x0, x0, x0
+lui x3, 0x10
+ld x4, 0(x3)
+ld x5, 8(x3)
+addi x3, x3, 16
+
+    addi x10, x0, 0
+    add x12, x3, x0
+If1: beq x4, x10, end1
+       addi x11, x0, 0
+If2:    beq x5, x11, end2
+           ld x20, 0(x12)
+           addi x12, x12, 8
+           addi x11, x11, 1
+           beq x0, x0, If2
+end2:   addi x10, x10, 1
+       beq x0, x0, If1
+end1: add x0, x0, x0

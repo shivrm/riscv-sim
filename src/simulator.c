@@ -213,6 +213,8 @@ int sim_load(Simulator *s, char *file) {
 		s->mem[DATA_SEGMENT_START + i] = d.data[i];	
 	}
 
+	s->execution_in_progress = 1;
+
 	if (s->cache_enabled) {
 		file[strlen(file) - 2] = '\0';
 		char *cache_output = malloc(30 * sizeof(char));
@@ -596,7 +598,7 @@ void sim_step(Simulator *s) {
 	int len = s->stack->len;
 	sim_run_one(s);
 	
-	printf("Executed: ");
+	printf("Executd: ");
 	int line = get_ins_line(s, pc/4+1);
 	print_line(s->src, line);
 	printf("; PC = 0x%lX\n", pc);
@@ -607,6 +609,7 @@ void sim_step(Simulator *s) {
 	// Remove `main` from stack at end of code
 	ins = *(uint32_t*)(&s->mem[s->pc]);
 	if (!ins) {
+		s->execution_in_progress = 0;
 		s->stack->len--;
 	}
 }
@@ -618,7 +621,6 @@ void sim_run(Simulator *s) {
 	while (ins) {
 		sim_step(s);
 		ins = *(uint32_t*)(&s->mem[s->pc]);
-
 		if (!ins) break;
 
 		// Check if current line is a breakpoint
@@ -631,6 +633,7 @@ void sim_run(Simulator *s) {
 		}
 	}
 
+	if (!ins) s->execution_in_progress = 0;
 	if (s->cache_enabled) print_cache_stats(s->cache);
 } 
 

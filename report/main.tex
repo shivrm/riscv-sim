@@ -2,6 +2,13 @@
 \usepackage{graphicx}
 \usepackage[a5paper, margin=15mm]{geometry}
 
+% Fonts
+\renewcommand{\rmdefault}{ptm}
+\renewcommand{\sfdefault}{phv}
+
+\setlength{\parindent}{0px}
+\setlength{\parskip}{5.5px}
+
 \title{Lab 7 - Project Report}
 \author{AI24BTECH11031 - Shivram S\\
 AI23BTECH11022 - Dhadheechi Ravva}
@@ -25,15 +32,30 @@ test it. To build, run:
 \begin{verbatim}
 $ make
 \end{verbatim} 
-This produces an executable called \texttt{riscv\_asm} in the project directory.
+This produces an executable called \texttt{riscv\_sim} in the project directory.
 
 The simulator can be run using the following command:
 \begin{verbatim}
-$ ./riscv_asm
+$ ./riscv_sim
 \end{verbatim}
 
-\section{Design of The Cache}
+\section{Modifications to the Simulator}
 
+The \texttt{Simulator} struct had to be extended to support the cache 
+simulator. Two fields - \texttt{cache} and \texttt{cache\_config}
+were added to hold the cache and its configuration.
+
+The \texttt{cache\_enabled} field indicates whether the cache simulator
+is enabled. The \texttt{execution\_in\_progress} field indicates if the simulator is
+currently executing a program - this is necessary to ensure that the
+cache configuration is not changed during execution.
+
+The implementation of load and store instructions were changed to use
+two new functions - \texttt{mem\_read} and \texttt{mem\_write}. These
+functions delegate memory access to the cache if it is enabled, otherwise
+they directly access the memory.
+
+\section{Design of The Cache}
 
 The simulator's cache consists of several \textbf{lines}. Each line consists of several
 \textbf{entries}, and each entry holds a block of memory. 
@@ -56,10 +78,109 @@ typedef struct Cache {
     uint8_t *mem; // Simulator memory 
     CacheLine *lines; // The actual cache data
     FILE *output_file; // File for logging accesses
-} Cache;
+} Cache
 \end{verbatim}
 
+The number of lines in the cache is given by \texttt{num\_lines},
+the number of entries in a line is given by \texttt{associativity},
+and the number of bytes in a block is given by \texttt{block\_size}.
 
+Each cache entry has the format
+
+\begin{verbatim}
+typedef struct CacheEntry {
+    int valid, dirty;
+    uint64_t tag;
+    union { uint64_t insert_time, access_time; };
+    uint8_t *data;
+} CacheEntry;    
+\end{verbatim}
+
+The \texttt{valid} bit determines if the entry is valid, and the
+\texttt{dirty} bit indicates that the entry contains changes not
+written to memory. The \texttt{insert\_time} and \texttt{access\_time}
+are used to select the entry to be replaced in the case of FIFO
+and LRU replacement policies respectively. The \texttt{tag}
+field holds the higher bits of the block's starting address.
+
+The cache configuration is represented by a struct called \texttt{CacheConfig},
+and is loaded from a file. The loading of the configuration is handled by
+the \texttt{load\_cache\_config} function.
+
+\begin{verbatim}
+typedef struct CacheConfig {
+    size_t size, block_size, associativity,
+    writeback_policy, replacement_policy;
+} CacheConfig;    
+\end{verbatim}
+
+The logic of the cache itself is implemented in three functions.
+\begin{itemize}
+    \item \texttt{cache\_read} reads a specified number of bytes at an address. 
+    \item \texttt{cache\_write} writes a specified number of bytes to an address.
+    \item \texttt{cache\_evict} is an internal function that selects blocks to be
+    evicted from the cache.
+\end{itemize}
+
+In addition to this, there are several smaller functions for initializing
+the cache, to dump the cache to a file, and to invalidate the cache.
+The cache simulator also logs all memory access to a file.
+
+\section{Command Line Interface}
+
+    All simulator commands are supported. The following cache-specific commands have been added:
+\begin{itemize}
+    \item \texttt{cache\_sim enable <config\_file>}: Enables the cache simulator, using
+    the configuration in \texttt{output\_file}.
+    \item \texttt{cache\_sim disable}: DIsables the cache simulator.
+    \item \texttt{cache\_sim status}: Displays the status of the cache, along with the
+    cache configuration (if cache is enabled).
+    \item \texttt{cache\_sim invalidate}: Invalidates all cache entries
+    \item \texttt{cache\_sim dump <output\_file>} Writes valid cache entries to
+    \texttt{output\_file}.
+    \item \texttt{cache\_sim stats}: Displays cache statistics such as hit count,
+    and hit rate.
+\end{itemize}
+
+\section{Testing}
+
+The project contains several test cases in the \texttt{test/} directory. The 
+shell script \texttt{test.sh} runs each test case and compares the cache output
+to the expected output in \texttt{expected.output}. In addition to this, the number
+of hits, misses, and writebacks were compared manually.
+
+\section{Future Scope}
+\begin{itemize}
+    \item Implementing a real-time graphical view of the cache to facilitate
+    profiling of code.
+    \item Adding ability to view the content of specific blocks in the cache.
+    \item Adding more replacement policies.
+    \item Showing the 'dirty' status separately for each word in a block.
+\end{itemize}
+\section{File Structure}
+
+\begin{verbatim}
++-- Makefile
++-- report.pdf
+| \-- main.tex // Source file for the report
++-- src
+| +-- asm // Source code for the assembler
+| | +-- emitter.c
+| | +-- emitter.h
+| | +-- lexer.c
+| | +-- lexer.h
+| | +-- parser.c
+| | +-- parser.h
+| | +-- tables.c
+| | \-- tables.h
+| +-- main.c
+| +-- simulator.c // Source code for the simulator
+| +-- simulator.h
+| +-- cache.c // Source code for the cache simulator
+| +-- cache.h
++-- test // Testcases
+\-- test.sh // Automatic testing script    
+\end{verbatim}
 
 
 \end{document}

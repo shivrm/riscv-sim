@@ -14,7 +14,7 @@ If1: beq x4, x10, end1
        slli x15, x10, 3
        add x12, x3, x15
 If2:    beq x5, x11, end2
-           ld x20, 0(x12)
+           sd x20, 0(x12)
            slli x15, x5, 3
            add x12, x12, x15
            addi x11, x11, 1
