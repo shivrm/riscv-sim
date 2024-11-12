@@ -559,8 +559,9 @@ void sim_run_one(Simulator *s) {
 
 // Prints the values of rhe registers
 void sim_regs(Simulator *s) {
+	printf("Registers:\n");
     for (int i = 0; i <= 31; i++) {
-        printf("x%d = 0x%lX \n", i, s->regs[i]);
+        printf("x%d = 0x%lX\n", i, s->regs[i]);
     }
 }
 
@@ -569,7 +570,7 @@ void sim_mem(Simulator *s, int start, int count){
 
 	for (int i = 0; i < count; i++) {
 		int addr = start + i;
-		printf("Memory[0x%x] = 0x%X \n", addr, s->mem[addr]);
+		printf("Memory[0x%x] = 0x%X\n", addr, s->mem[addr]);
 	}
 }
 
@@ -598,10 +599,10 @@ void sim_step(Simulator *s) {
 	int len = s->stack->len;
 	sim_run_one(s);
 	
-	printf("Executd: ");
+	printf("Executed: ");
 	int line = get_ins_line(s, pc/4+1);
 	print_line(s->src, line);
-	printf("; PC = 0x%lX\n", pc);
+	printf("; PC = 0x%08lx\n", pc);
 
 	// Update call stack
 	s->stack->data[len-1].line = line;

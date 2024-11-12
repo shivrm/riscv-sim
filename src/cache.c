@@ -262,6 +262,15 @@ void cache_write(Cache *c, uint64_t addr, uint64_t value, size_t num_bytes) {
 void cache_invalidate(Cache *c) {
     for (int i = 0; i < c->num_lines; i++) {
         for (int j = 0; j < c->associativity; j++) {
+            CacheEntry *entry = &c->lines[i].entries[j];
+            
+            // Dump if entry is dirty
+            if (entry->dirty) {
+                c->writebacks += 1;
+                uint64_t block_start = (entry->tag * c->num_lines * c->block_size) + (i * c->block_size);
+                memcpy(&c->mem[block_start], entry->data, c->block_size);
+            }
+
             c->lines[i].entries[j].valid = 0;
         }
     }
@@ -304,6 +313,6 @@ void print_cache_config(Cache *c) {
 void print_cache_stats(Cache *c) {
     size_t accesses = c->hits + c->misses;
     double hit_rate = (double)c->hits / accesses;
-    printf("D-Cache statistics: Accesses=%lu, Hit=%lu, Miss=%lu, Hit Rate=%lf\n", accesses, c->hits, c->misses, hit_rate);
+    printf("D-Cache statistics: Accesses=%lu, Hit=%lu, Miss=%lu, Hit Rate=%.2lf\n", accesses, c->hits, c->misses, hit_rate);
     return;
 }
