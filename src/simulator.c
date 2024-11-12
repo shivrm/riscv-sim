@@ -230,7 +230,11 @@ uint64_t mem_read(Simulator *s, uint64_t addr, size_t num_bytes) {
 	if (s->cache_enabled) {
 		return cache_read(s->cache, addr, num_bytes);
 	} else {
-		return *(uint64_t*)&s->mem[addr];
+		uint64_t value = 0;
+		for (int i = 0; i < num_bytes; i++) {
+			value = (value << 8) + s->mem[addr + num_bytes - i - 1];
+		}
+		return value;
 	}
 }
 
@@ -238,7 +242,10 @@ void mem_write(Simulator *s, uint64_t addr, uint64_t value, size_t num_bytes) {
 	if (s->cache_enabled) {
 		return cache_write(s->cache, addr, value, num_bytes);
 	} else {
-		*(uint64_t*)&s->mem[addr] = value;
+		for (int i = 0; i < num_bytes; i++) {
+			s->mem[addr + i] = value % 0xff;
+			value = value >> 8;
+		}
 	}
 }
 
